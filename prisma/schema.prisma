@@ -77,17 +77,17 @@ enum EntryType {
 
 // ─── Users / Auth ───────────────────────────────────────────
 
-/// Mirrors auth.users in Supabase. Extended with app-level profile.
 model UserProfile {
-  id          String   @id @db.Uuid  // Same UUID as auth.users.id
-  email       String   @unique
-  fullName    String
-  role        Role
-  branchId    String?  @db.Uuid
-  branch      Branch?  @relation(fields: [branchId], references: [id])
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  passwordHash  String
+  fullName      String
+  role          Role
+  branchId      String?   @db.Uuid
+  branch        Branch?   @relation(fields: [branchId], references: [id])
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   loansSubmitted    Loan[]         @relation("SubmittedBy")
   loansApproved     Loan[]         @relation("ApprovedBy")
