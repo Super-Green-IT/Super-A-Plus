@@ -75,6 +75,7 @@ export default function DevComponentsPage() {
   return (
     <div className="space-y-8 pb-12">
       <div>
+        
         <h1 className="text-2xl font-bold tracking-tight text-slate-100">UI Primitives & Design System</h1>
         <p className="mt-1 text-sm text-slate-400">
           Component sandbox for testing foundational UI tokens, money formatters, data tables, and forms.
