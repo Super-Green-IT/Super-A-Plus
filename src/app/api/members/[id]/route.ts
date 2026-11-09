@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { validateNIC, formatSLPhone } from '@/lib/validation/nic'
 
 const memberUpdateSchema = z.object({
-  fullName: z.string().min(2).optional(),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters').optional(),
+  nic: z.string().optional(),
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
+  dateOfBirth: z.string().optional().nullable(),
   centreId: z.string().uuid().optional().nullable(),
   isActive: z.boolean().optional(),
 })
@@ -128,9 +132,79 @@ export async function PATCH(
       )
     }
 
+    const { fullName, nic, phone, address, gender, dateOfBirth, centreId, isActive } = parsed.data
+
+    const updateData: {
+      fullName?: string
+      nic?: string
+      phone?: string | null
+      address?: string | null
+      gender?: 'MALE' | 'FEMALE' | 'OTHER' | null
+      dateOfBirth?: Date | null
+      centreId?: string | null
+      isActive?: boolean
+    } = {}
+
+    if (fullName !== undefined) {
+      updateData.fullName = fullName.trim()
+    }
+
+    if (nic !== undefined) {
+      const nicResult = validateNIC(nic)
+      if (!nicResult.isValid) {
+        return NextResponse.json(
+          { error: nicResult.error || 'Invalid NIC format' },
+          { status: 400 }
+        )
+      }
+
+      // Check if duplicate exists for other member
+      const duplicate = await prisma.member.findFirst({
+        where: {
+          nic: nicResult.formatted,
+          id: { not: id },
+        },
+      })
+
+      if (duplicate) {
+        return NextResponse.json(
+          {
+            error: `A member with NIC ${nicResult.formatted} is already registered (${duplicate.memberNumber} - ${duplicate.fullName})`,
+          },
+          { status: 409 }
+        )
+      }
+
+      updateData.nic = nicResult.formatted
+    }
+
+    if (phone !== undefined) {
+      updateData.phone = phone && phone.trim() ? formatSLPhone(phone.trim()) : null
+    }
+
+    if (address !== undefined) {
+      updateData.address = address && address.trim() ? address.trim() : null
+    }
+
+    if (gender !== undefined) {
+      updateData.gender = gender || null
+    }
+
+    if (dateOfBirth !== undefined) {
+      updateData.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null
+    }
+
+    if (centreId !== undefined) {
+      updateData.centreId = centreId || null
+    }
+
+    if (isActive !== undefined) {
+      updateData.isActive = isActive
+    }
+
     const member = await prisma.member.update({
       where: { id },
-      data: parsed.data,
+      data: updateData,
       include: {
         centre: { select: { id: true, name: true } },
       },

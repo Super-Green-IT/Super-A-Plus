@@ -6,6 +6,7 @@ import { useAuth } from '@/components/providers/auth-provider'
 import { formatLKR, formatDate } from '@/lib/formatters'
 import { MoneyCell } from '@/components/ui/money-cell'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Users,
   CreditCard,
@@ -20,9 +21,36 @@ import {
 export default function DashboardPage() {
   const { user } = useAuth()
   const [today, setToday] = React.useState<Date | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [reportData, setReportData] = React.useState<any>(null)
+  const [pendingLoans, setPendingLoans] = React.useState<any[]>([])
 
   React.useEffect(() => {
     setToday(new Date())
+
+    async function loadDashboard() {
+      try {
+        setLoading(true)
+        const [repRes, loanRes] = await Promise.all([
+          fetch('/api/reports'),
+          fetch('/api/loans?status=SUBMITTED&limit=5'),
+        ])
+        if (repRes.ok) {
+          const repJson = await repRes.json()
+          setReportData(repJson)
+        }
+        if (loanRes.ok) {
+          const loanJson = await loanRes.json()
+          setPendingLoans(loanJson.loans || [])
+        }
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboard()
   }, [])
 
   return (
@@ -34,7 +62,8 @@ export default function DashboardPage() {
             Welcome back, {user?.fullName || 'Staff'}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Branch: <span className="text-slate-200 font-medium">Head Office</span> &bull; {today ? formatDate(today, 'EEEE, dd MMMM yyyy') : 'Today'}
+            Branch: <span className="text-slate-200 font-medium">Head Office</span> &bull;{' '}
+            {today ? formatDate(today, 'EEEE, dd MMMM yyyy') : 'Today'}
           </p>
         </div>
 
@@ -47,7 +76,7 @@ export default function DashboardPage() {
             New Loan
           </Link>
           <Link
-            href="/members/new"
+            href="/members?action=new"
             className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors"
           >
             <Users className="h-3.5 w-3.5" />
@@ -67,12 +96,16 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold tracking-tight text-slate-100 font-mono">
-              {formatLKR(14250000)}
-            </div>
+            {loading ? (
+              <Skeleton className="h-7 w-32" />
+            ) : (
+              <div className="text-xl font-bold tracking-tight text-slate-100 font-mono">
+                {formatLKR(reportData?.summary?.totalActivePortfolio ?? 14250000)}
+              </div>
+            )}
             <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-400">
               <TrendingUp className="h-3 w-3" />
-              <span>+4.2% from last month</span>
+              <span>Active weekly lending</span>
             </div>
           </div>
         </div>
@@ -86,48 +119,54 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold tracking-tight text-slate-100 font-mono">
-              284
-            </div>
-            <div className="mt-1 text-[11px] text-slate-400">
-              Across 12 micro centres
-            </div>
+            {loading ? (
+              <Skeleton className="h-7 w-20" />
+            ) : (
+              <div className="text-xl font-bold tracking-tight text-slate-100 font-mono">
+                {reportData?.summary?.activeBorrowers ?? 284}
+              </div>
+            )}
+            <div className="mt-1 text-[11px] text-slate-400">KYC registered members</div>
           </div>
         </div>
 
-        {/* Today's Due */}
+        {/* Total Disbursed */}
         <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-medium uppercase tracking-wider">Today's Target</span>
+            <span className="text-xs font-medium uppercase tracking-wider">Total Disbursed</span>
             <div className="rounded-md bg-amber-500/10 p-1.5 text-amber-400">
               <HandCoins className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold tracking-tight text-slate-100 font-mono">
-              {formatLKR(385000)}
-            </div>
-            <div className="mt-1 text-[11px] text-amber-400">
-              4 centres scheduled today
-            </div>
+            {loading ? (
+              <Skeleton className="h-7 w-28" />
+            ) : (
+              <div className="text-xl font-bold tracking-tight text-slate-100 font-mono">
+                {formatLKR(reportData?.summary?.totalDisbursed ?? 3850000)}
+              </div>
+            )}
+            <div className="mt-1 text-[11px] text-amber-400">Cumulative capital released</div>
           </div>
         </div>
 
         {/* Portfolio at Risk (PAR) */}
         <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-medium uppercase tracking-wider">PAR (30+ Days)</span>
+            <span className="text-xs font-medium uppercase tracking-wider">PAR (Risk Rate)</span>
             <div className="rounded-md bg-rose-500/10 p-1.5 text-rose-400">
               <AlertTriangle className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-bold tracking-tight text-rose-400 font-mono">
-              2.18%
-            </div>
-            <div className="mt-1 text-[11px] text-slate-400">
-              {formatLKR(310650)} overdue
-            </div>
+            {loading ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <div className="text-xl font-bold tracking-tight text-rose-400 font-mono">
+                {reportData?.summary?.parRate ?? 2.18}%
+              </div>
+            )}
+            <div className="mt-1 text-[11px] text-slate-400">Target below 5.0%</div>
           </div>
         </div>
       </div>
@@ -150,40 +189,52 @@ export default function DashboardPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead>
-                <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
-                  <th className="py-2 pr-3">Applicant</th>
-                  <th className="py-2 px-3">Centre</th>
-                  <th className="py-2 px-3 text-right">Requested</th>
-                  <th className="py-2 px-3">Term</th>
-                  <th className="py-2 pl-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                <tr>
-                  <td className="py-2.5 pr-3 font-medium text-slate-200">Kusuma Ranasinghe</td>
-                  <td className="py-2.5 px-3 text-slate-400">Mahaweli Centre A</td>
-                  <td className="py-2.5 px-3"><MoneyCell amount={100000} /></td>
-                  <td className="py-2.5 px-3 text-slate-400">52 wks (Flat)</td>
-                  <td className="py-2.5 pl-3"><StatusBadge status="SUBMITTED" size="sm" /></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 pr-3 font-medium text-slate-200">Rohitha Jayawardena</td>
-                  <td className="py-2.5 px-3 text-slate-400">Kiribathgoda C</td>
-                  <td className="py-2.5 px-3"><MoneyCell amount={150000} /></td>
-                  <td className="py-2.5 px-3 text-slate-400">26 wks (Reducing)</td>
-                  <td className="py-2.5 pl-3"><StatusBadge status="SUBMITTED" size="sm" /></td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 pr-3 font-medium text-slate-200">Priyantha Dissanayake</td>
-                  <td className="py-2.5 px-3 text-slate-400">Kadawatha B</td>
-                  <td className="py-2.5 px-3"><MoneyCell amount={75000} /></td>
-                  <td className="py-2.5 px-3 text-slate-400">52 wks (Flat)</td>
-                  <td className="py-2.5 pl-3"><StatusBadge status="APPROVED" size="sm" /></td>
-                </tr>
-              </tbody>
-            </table>
+            {loading ? (
+              <div className="space-y-2 py-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : pendingLoans.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-500">
+                No pending loan applications awaiting approval.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
+                    <th className="py-2 pr-3">Applicant</th>
+                    <th className="py-2 px-3">Centre</th>
+                    <th className="py-2 px-3 text-right">Requested</th>
+                    <th className="py-2 px-3">Term</th>
+                    <th className="py-2 pl-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  {pendingLoans.map((pl) => (
+                    <tr key={pl.id} className="hover:bg-slate-800/30">
+                      <td className="py-2.5 pr-3 font-medium text-slate-200">
+                        <Link href={`/loans/${pl.id}`} className="hover:text-emerald-400">
+                          {pl.member.fullName}
+                        </Link>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400">
+                        {pl.member.centre?.name || 'Unassigned'}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <MoneyCell amount={pl.principalAmount} />
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400">
+                        {pl.termWeeks} wks ({pl.product.interestMethod})
+                      </td>
+                      <td className="py-2.5 pl-3">
+                        <StatusBadge status={pl.status} size="sm" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -231,7 +282,8 @@ export default function DashboardPage() {
           <div className="rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-4">
             <h3 className="text-xs font-semibold text-emerald-300">Component Sandbox Active</h3>
             <p className="text-[11px] text-slate-400 mt-1">
-              Test and preview all design system primitives, TanStack data tables, LKR formatters, and typed dialogs.
+              Test and preview all design system primitives, TanStack data tables, LKR formatters, and
+              typed dialogs.
             </p>
             <Link
               href="/dev/components"

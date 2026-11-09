@@ -149,7 +149,7 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: Si
       </div>
 
       {/* Field View Switcher (for Field Officers or Admins testing mobile) */}
-      {(user?.role === 'ADMIN' || user?.role === 'FIELD_OFFICER') && (
+      {/* {(user?.role === 'ADMIN' || user?.role === 'FIELD_OFFICER') && (
         <div className="p-3 border-t border-slate-900">
           <Link
             href="/field"
@@ -164,7 +164,7 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: Si
             {!collapsed && <span className="font-medium truncate">Field Officer App</span>}
           </Link>
         </div>
-      )}
+      )} */}
 
       {/* Bottom Status / Database Mode */}
       <div className="border-t border-slate-800/80 p-3 bg-slate-950/60 text-[11px] text-slate-500">

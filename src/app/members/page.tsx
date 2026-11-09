@@ -2,13 +2,14 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ColumnDef } from '@tanstack/react-table'
-import { Plus, Users, Search, Building2, Eye, Filter } from 'lucide-react'
+import { Plus, Building2, Eye, Filter, Pencil } from 'lucide-react'
 import { DataTable } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { MoneyCell } from '@/components/ui/money-cell'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MemberModal, MemberModalData } from '@/components/members/member-modal'
 
 interface MemberRow {
   id: string
@@ -16,6 +17,9 @@ interface MemberRow {
   fullName: string
   nic: string
   phone: string | null
+  address?: string | null
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | null
+  dateOfBirth?: string | null
   centre: { id: string; name: string } | null
   activeLoansCount: number
   outstandingBalance: number
@@ -23,18 +27,49 @@ interface MemberRow {
 }
 
 export default function MembersListPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      }
+    >
+      <MembersListContent />
+    </React.Suspense>
+  )
+}
+
+function MembersListContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [members, setMembers] = React.useState<MemberRow[]>([])
   const [centres, setCentres] = React.useState<{ id: string; name: string }[]>([])
   const [selectedCentre, setSelectedCentre] = React.useState<string>('ALL')
   const [loading, setLoading] = React.useState(true)
 
+  // Modal State for Add / Update
+  const [modalOpen, setModalOpen] = React.useState(false)
+  const [editingMember, setEditingMember] = React.useState<MemberModalData | null>(null)
+
+  // Auto-open modal if URL specifies action=new or new=true
+  React.useEffect(() => {
+    if (searchParams.get('action') === 'new' || searchParams.get('new') === 'true') {
+      setEditingMember(null)
+      setModalOpen(true)
+    }
+  }, [searchParams])
+
   const fetchMembers = React.useCallback(async () => {
     try {
       setLoading(true)
-      const url = selectedCentre === 'ALL'
-        ? '/api/members'
-        : `/api/members?centreId=${selectedCentre}`
+      const url =
+        selectedCentre === 'ALL'
+          ? '/api/members'
+          : `/api/members?centreId=${selectedCentre}`
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
@@ -64,6 +99,28 @@ export default function MembersListPage() {
   React.useEffect(() => {
     fetchMembers()
   }, [fetchMembers])
+
+  const handleOpenAddModal = () => {
+    setEditingMember(null)
+    setModalOpen(true)
+  }
+
+  const handleOpenEditModal = (member: MemberRow) => {
+    setEditingMember({
+      id: member.id,
+      memberNumber: member.memberNumber,
+      fullName: member.fullName,
+      nic: member.nic,
+      phone: member.phone,
+      address: member.address,
+      gender: member.gender,
+      dateOfBirth: member.dateOfBirth,
+      centreId: member.centre?.id,
+      centre: member.centre,
+      isActive: member.isActive,
+    })
+    setModalOpen(true)
+  }
 
   const columns: ColumnDef<MemberRow>[] = [
     {
@@ -138,14 +195,24 @@ export default function MembersListPage() {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
-        <Link
-          href={`/members/${row.original.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-        >
-          <Eye className="h-3 w-3" />
-          Profile
-        </Link>
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => handleOpenEditModal(row.original)}
+            className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+            title="Edit Member"
+          >
+            <Pencil className="h-3 w-3" />
+            Edit
+          </button>
+          <Link
+            href={`/members/${row.original.id}`}
+            className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            <Eye className="h-3 w-3" />
+            Profile
+          </Link>
+        </div>
       ),
     },
   ]
@@ -163,13 +230,14 @@ export default function MembersListPage() {
           </p>
         </div>
 
-        <Link
-          href="/members/new"
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-emerald-500 transition-colors shadow-sm self-start sm:self-auto"
+        <button
+          type="button"
+          onClick={handleOpenAddModal}
+          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-emerald-500 transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Register New Member
-        </Link>
+        </button>
       </div>
 
       {/* Filter Toolbar */}
@@ -194,11 +262,11 @@ export default function MembersListPage() {
 
       {/* Main Table */}
       {loading ? (
-        <div className="space-y-2">
+        <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
           <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
         </div>
       ) : (
         <DataTable
@@ -209,6 +277,17 @@ export default function MembersListPage() {
           onRowClick={(row) => router.push(`/members/${row.id}`)}
         />
       )}
+
+      {/* Member Add / Update Modal */}
+      <MemberModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        member={editingMember}
+        centres={centres}
+        onSuccess={() => {
+          fetchMembers()
+        }}
+      />
     </div>
   )
 }

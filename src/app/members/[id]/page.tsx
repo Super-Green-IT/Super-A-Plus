@@ -19,6 +19,7 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { MoneyCell } from '@/components/ui/money-cell'
@@ -26,6 +27,7 @@ import { FormSection } from '@/components/ui/form-section'
 import { FieldRow } from '@/components/ui/field-row'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MemberModal } from '@/components/members/member-modal'
 import { formatLKR, formatDate, formatDateTime } from '@/lib/formatters'
 
 type TabKey = 'overview' | 'loans' | 'guarantors' | 'documents'
@@ -54,6 +56,7 @@ function MemberProfileContent() {
   const [member, setMember] = React.useState<any>(null)
   const [loading, setLoading] = React.useState(true)
   const [activeTab, setActiveTab] = React.useState<TabKey>('overview')
+  const [editModalOpen, setEditModalOpen] = React.useState(false)
 
   // Document Upload State
   const [docLabel, setDocLabel] = React.useState('NIC Front')
@@ -160,13 +163,23 @@ function MemberProfileContent() {
           <span className="text-xs text-slate-400">Back to Members List</span>
         </div>
 
-        <Link
-          href={`/loans/new?memberId=${member.id}`}
-          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 transition-colors shadow-sm"
-        >
-          <PlusCircle className="h-3.5 w-3.5" />
-          Apply for Loan
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer shadow-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit Profile
+          </button>
+          <Link
+            href={`/loans/new?memberId=${member.id}`}
+            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 transition-colors shadow-sm"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            Apply for Loan
+          </Link>
+        </div>
       </div>
 
       {/* Header Profile Card */}
@@ -642,6 +655,16 @@ function MemberProfileContent() {
           </div>
         </div>
       )}
+
+      {/* Edit Member Profile Modal */}
+      <MemberModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        member={member}
+        onSuccess={() => {
+          fetchMember()
+        }}
+      />
     </div>
   )
 }

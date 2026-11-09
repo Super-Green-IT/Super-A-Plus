@@ -24,8 +24,8 @@ enum Role {
 
 enum LoanStatus {
   DRAFT
-  SUBMITTED       // Field Officer submitted
-  APPROVED        // Branch Manager approved
+  SUBMITTED // Field Officer submitted
+  APPROVED // Branch Manager approved
   REJECTED
   DISBURSED
   ACTIVE
@@ -78,25 +78,25 @@ enum EntryType {
 // ─── Users / Auth ───────────────────────────────────────────
 
 model UserProfile {
-  id            String    @id @default(uuid()) @db.Uuid
-  email         String    @unique
-  passwordHash  String
-  fullName      String
-  role          Role
-  branchId      String?   @db.Uuid
-  branch        Branch?   @relation(fields: [branchId], references: [id])
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         Role
+  branchId     String?  @db.Uuid
+  branch       Branch?  @relation(fields: [branchId], references: [id])
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  loansSubmitted    Loan[]         @relation("SubmittedBy")
-  loansApproved     Loan[]         @relation("ApprovedBy")
-  loansRejected     Loan[]         @relation("RejectedBy")
-  loansDisbursed    Loan[]         @relation("DisbursedBy")
-  receipts          Receipt[]
-  dayCloses         DayClose[]
-  leadsAssigned     Lead[]
-  auditLogs         AuditLog[]
+  loansSubmitted Loan[]     @relation("SubmittedBy")
+  loansApproved  Loan[]     @relation("ApprovedBy")
+  loansRejected  Loan[]     @relation("RejectedBy")
+  loansDisbursed Loan[]     @relation("DisbursedBy")
+  receipts       Receipt[]
+  dayCloses      DayClose[]
+  leadsAssigned  Lead[]
+  auditLogs      AuditLog[]
 
   @@map("user_profiles")
 }
@@ -130,7 +130,7 @@ model Centre {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members   Member[]
+  members Member[]
 
   @@map("centres")
 }
@@ -138,23 +138,23 @@ model Centre {
 // ─── Member / KYC ───────────────────────────────────────────
 
 model Member {
-  id            String    @id @default(uuid()) @db.Uuid
-  memberNumber  String    @unique  // Auto-generated, e.g. M-0001
-  fullName      String
-  nic           String    @unique
-  dateOfBirth   DateTime?
-  gender        Gender?
-  phone         String?
-  address       String?
-  centreId      String?   @db.Uuid
-  centre        Centre?   @relation(fields: [centreId], references: [id])
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(uuid()) @db.Uuid
+  memberNumber String    @unique // Auto-generated, e.g. M-0001
+  fullName     String
+  nic          String    @unique
+  dateOfBirth  DateTime?
+  gender       Gender?
+  phone        String?
+  address      String?
+  centreId     String?   @db.Uuid
+  centre       Centre?   @relation(fields: [centreId], references: [id])
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   loans         Loan[]
-  guarantors    Guarantor[]   @relation("GuarantorMember")
-  guaranteedFor Guarantor[]   @relation("BorrowerGuarantor")
+  guarantors    Guarantor[] @relation("GuarantorMember")
+  guaranteedFor Guarantor[] @relation("BorrowerGuarantor")
   documents     Document[]
 
   @@map("members")
@@ -163,13 +163,13 @@ model Member {
 // ─── Documents ──────────────────────────────────────────────
 
 model Document {
-  id           String   @id @default(uuid()) @db.Uuid
-  memberId     String   @db.Uuid
-  member       Member   @relation(fields: [memberId], references: [id])
-  label        String   // e.g. "NIC Front", "NIC Back", "Photo"
-  storagePath  String   // Supabase Storage path
-  mimeType     String?
-  uploadedAt   DateTime @default(now())
+  id          String   @id @default(uuid()) @db.Uuid
+  memberId    String   @db.Uuid
+  member      Member   @relation(fields: [memberId], references: [id])
+  label       String // e.g. "NIC Front", "NIC Back", "Photo"
+  storagePath String // Supabase Storage path
+  mimeType    String?
+  uploadedAt  DateTime @default(now())
 
   @@map("documents")
 }
@@ -177,22 +177,22 @@ model Document {
 // ─── Loan Products ──────────────────────────────────────────
 
 model LoanProduct {
-  id                String         @id @default(uuid()) @db.Uuid
-  name              String         @unique  // e.g. "Business Weekly Flat"
-  loanType          LoanType
-  interestMethod    InterestMethod
-  annualInterestRate Decimal       @db.Decimal(10, 4)  // e.g. 0.2400 = 24%
-  minAmount         Decimal        @db.Decimal(18, 2)
-  maxAmount         Decimal        @db.Decimal(18, 2)
-  minTermWeeks      Int
-  maxTermWeeks      Int
-  processingFeeRate Decimal        @db.Decimal(10, 4)  @default(0)  // e.g. 0.01 = 1%
-  requiresGuarantor Boolean        @default(true)
-  isActive          Boolean        @default(true)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id                 String         @id @default(uuid()) @db.Uuid
+  name               String         @unique // e.g. "Business Weekly Flat"
+  loanType           LoanType
+  interestMethod     InterestMethod
+  annualInterestRate Decimal        @db.Decimal(10, 4) // e.g. 0.2400 = 24%
+  minAmount          Decimal        @db.Decimal(18, 2)
+  maxAmount          Decimal        @db.Decimal(18, 2)
+  minTermWeeks       Int
+  maxTermWeeks       Int
+  processingFeeRate  Decimal        @default(0) @db.Decimal(10, 4) // e.g. 0.01 = 1%
+  requiresGuarantor  Boolean        @default(true)
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
-  loans             Loan[]
+  loans Loan[]
 
   @@map("loan_products")
 }
@@ -203,11 +203,11 @@ model LoanProduct {
 /// A member cannot be an active guarantor on more than one ongoing loan.
 model Guarantor {
   id         String   @id @default(uuid()) @db.Uuid
-  loanId     String   @unique @db.Uuid   // One guarantor per loan
+  loanId     String   @unique @db.Uuid // One guarantor per loan
   loan       Loan     @relation(fields: [loanId], references: [id])
   memberId   String   @db.Uuid
   member     Member   @relation("GuarantorMember", fields: [memberId], references: [id])
-  borrowerId String   @db.Uuid           // Denormalised for constraint check
+  borrowerId String   @db.Uuid // Denormalised for constraint check
   borrower   Member   @relation("BorrowerGuarantor", fields: [borrowerId], references: [id])
   createdAt  DateTime @default(now())
 
@@ -217,47 +217,47 @@ model Guarantor {
 // ─── Loan ───────────────────────────────────────────────────
 
 model Loan {
-  id                 String      @id @default(uuid()) @db.Uuid
-  loanNumber         String      @unique   // Auto-generated, e.g. L-0001
-  memberId           String      @db.Uuid
-  member             Member      @relation(fields: [memberId], references: [id])
-  branchId           String      @db.Uuid
-  branch             Branch      @relation(fields: [branchId], references: [id])
-  productId          String      @db.Uuid
-  product            LoanProduct @relation(fields: [productId], references: [id])
+  id         String      @id @default(uuid()) @db.Uuid
+  loanNumber String      @unique // Auto-generated, e.g. L-0001
+  memberId   String      @db.Uuid
+  member     Member      @relation(fields: [memberId], references: [id])
+  branchId   String      @db.Uuid
+  branch     Branch      @relation(fields: [branchId], references: [id])
+  productId  String      @db.Uuid
+  product    LoanProduct @relation(fields: [productId], references: [id])
 
   loanType           LoanType
-  interestMethod     InterestMethod  // Snapshot from product at origination
-  principalAmount    Decimal     @db.Decimal(18, 2)
-  annualInterestRate Decimal     @db.Decimal(10, 4)  // Snapshot
+  interestMethod     InterestMethod // Snapshot from product at origination
+  principalAmount    Decimal        @db.Decimal(18, 2)
+  annualInterestRate Decimal        @db.Decimal(10, 4) // Snapshot
   termWeeks          Int
-  processingFee      Decimal     @db.Decimal(18, 2)  @default(0)
-  totalInterest      Decimal     @db.Decimal(18, 2)  @default(0)
-  totalRepayable     Decimal     @db.Decimal(18, 2)  @default(0)
-  weeklyInstallment  Decimal     @db.Decimal(18, 2)  @default(0)
+  processingFee      Decimal        @default(0) @db.Decimal(18, 2)
+  totalInterest      Decimal        @default(0) @db.Decimal(18, 2)
+  totalRepayable     Decimal        @default(0) @db.Decimal(18, 2)
+  weeklyInstallment  Decimal        @default(0) @db.Decimal(18, 2)
 
-  status             LoanStatus  @default(DRAFT)
+  status             LoanStatus   @default(DRAFT)
   purposeNotes       String?
   disbursedAt        DateTime?
   firstRepaymentDate DateTime?
-  submittedById      String?     @db.Uuid
+  submittedById      String?      @db.Uuid
   submittedBy        UserProfile? @relation("SubmittedBy", fields: [submittedById], references: [id])
-  approvedById       String?     @db.Uuid
+  approvedById       String?      @db.Uuid
   approvedBy         UserProfile? @relation("ApprovedBy", fields: [approvedById], references: [id])
-  rejectedById       String?     @db.Uuid
+  rejectedById       String?      @db.Uuid
   rejectedBy         UserProfile? @relation("RejectedBy", fields: [rejectedById], references: [id])
   rejectionReason    String?
-  disbursedById      String?     @db.Uuid
+  disbursedById      String?      @db.Uuid
   disbursedBy        UserProfile? @relation("DisbursedBy", fields: [disbursedById], references: [id])
 
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guarantor          Guarantor?
-  installments       Installment[]
-  receipts           Receipt[]
-  ledgerEntries      LedgerEntry[]
-  auditLogs          AuditLog[]
+  guarantor     Guarantor?
+  installments  Installment[]
+  receipts      Receipt[]
+  ledgerEntries LedgerEntry[]
+  auditLogs     AuditLog[]
 
   @@map("loans")
 }
@@ -265,21 +265,21 @@ model Loan {
 // ─── Installment (Repayment Schedule) ───────────────────────
 
 model Installment {
-  id              String            @id @default(uuid()) @db.Uuid
-  loanId          String            @db.Uuid
-  loan            Loan              @relation(fields: [loanId], references: [id])
-  weekNumber      Int               // 1-based
-  dueDate         DateTime
-  principalDue    Decimal           @db.Decimal(18, 2)
-  interestDue     Decimal           @db.Decimal(18, 2)
-  totalDue        Decimal           @db.Decimal(18, 2)
-  principalPaid   Decimal           @db.Decimal(18, 2)  @default(0)
-  interestPaid    Decimal           @db.Decimal(18, 2)  @default(0)
-  totalPaid       Decimal           @db.Decimal(18, 2)  @default(0)
-  status          InstallmentStatus @default(PENDING)
-  lastUpdated     DateTime?
+  id            String            @id @default(uuid()) @db.Uuid
+  loanId        String            @db.Uuid
+  loan          Loan              @relation(fields: [loanId], references: [id])
+  weekNumber    Int // 1-based
+  dueDate       DateTime
+  principalDue  Decimal           @db.Decimal(18, 2)
+  interestDue   Decimal           @db.Decimal(18, 2)
+  totalDue      Decimal           @db.Decimal(18, 2)
+  principalPaid Decimal           @default(0) @db.Decimal(18, 2)
+  interestPaid  Decimal           @default(0) @db.Decimal(18, 2)
+  totalPaid     Decimal           @default(0) @db.Decimal(18, 2)
+  status        InstallmentStatus @default(PENDING)
+  lastUpdated   DateTime?
 
-  receiptLines    ReceiptLine[]
+  receiptLines ReceiptLine[]
 
   @@unique([loanId, weekNumber])
   @@map("installments")
@@ -289,22 +289,22 @@ model Installment {
 
 /// One receipt per collection event (field or counter).
 model Receipt {
-  id              String      @id @default(uuid()) @db.Uuid
-  receiptNumber   String      @unique   // Auto-generated
-  idempotencyKey  String      @unique   // Prevents duplicate sync from offline PWA
-  loanId          String      @db.Uuid
-  loan            Loan        @relation(fields: [loanId], references: [id])
-  collectedById   String      @db.Uuid
-  collectedBy     UserProfile @relation(fields: [collectedById], references: [id])
-  collectedAt     DateTime
-  totalAmount     Decimal     @db.Decimal(18, 2)
-  notes           String?
-  isReversed      Boolean     @default(false)
-  reversedByReceiptId String? @db.Uuid  // Points to the reversal receipt
-  createdAt       DateTime    @default(now())
+  id                  String      @id @default(uuid()) @db.Uuid
+  receiptNumber       String      @unique // Auto-generated
+  idempotencyKey      String      @unique // Prevents duplicate sync from offline PWA
+  loanId              String      @db.Uuid
+  loan                Loan        @relation(fields: [loanId], references: [id])
+  collectedById       String      @db.Uuid
+  collectedBy         UserProfile @relation(fields: [collectedById], references: [id])
+  collectedAt         DateTime
+  totalAmount         Decimal     @db.Decimal(18, 2)
+  notes               String?
+  isReversed          Boolean     @default(false)
+  reversedByReceiptId String?     @db.Uuid // Points to the reversal receipt
+  createdAt           DateTime    @default(now())
 
-  lines           ReceiptLine[]
-  ledgerEntries   LedgerEntry[]
+  lines         ReceiptLine[]
+  ledgerEntries LedgerEntry[]
 
   @@map("receipts")
 }
@@ -330,7 +330,7 @@ model LedgerEntry {
   loan        Loan?     @relation(fields: [loanId], references: [id])
   receiptId   String?   @db.Uuid
   receipt     Receipt?  @relation(fields: [receiptId], references: [id])
-  account     String    // e.g. "LOAN_RECEIVABLE", "CASH", "INTEREST_INCOME"
+  account     String // e.g. "LOAN_RECEIVABLE", "CASH", "INTEREST_INCOME"
   entryType   EntryType
   amount      Decimal   @db.Decimal(18, 2)
   description String?
@@ -358,21 +358,21 @@ model CashFlow {
 // ─── Day Close ──────────────────────────────────────────────
 
 model DayClose {
-  id              String         @id @default(uuid()) @db.Uuid
-  branchId        String         @db.Uuid
-  branch          Branch         @relation(fields: [branchId], references: [id])
-  closeDate       DateTime
-  closedById      String         @db.Uuid
-  closedBy        UserProfile    @relation(fields: [closedById], references: [id])
-  openingCash     Decimal        @db.Decimal(18, 2)
-  totalCollected  Decimal        @db.Decimal(18, 2)
-  totalDisbursed  Decimal        @db.Decimal(18, 2)
-  closingCash     Decimal        @db.Decimal(18, 2)
-  variance        Decimal        @db.Decimal(18, 2)  @default(0)
-  status          DayCloseStatus @default(OPEN)
-  notes           String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id             String         @id @default(uuid()) @db.Uuid
+  branchId       String         @db.Uuid
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  closeDate      DateTime
+  closedById     String         @db.Uuid
+  closedBy       UserProfile    @relation(fields: [closedById], references: [id])
+  openingCash    Decimal        @db.Decimal(18, 2)
+  totalCollected Decimal        @db.Decimal(18, 2)
+  totalDisbursed Decimal        @db.Decimal(18, 2)
+  closingCash    Decimal        @db.Decimal(18, 2)
+  variance       Decimal        @default(0) @db.Decimal(18, 2)
+  status         DayCloseStatus @default(OPEN)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@unique([branchId, closeDate])
   @@map("day_closes")
@@ -381,18 +381,18 @@ model DayClose {
 // ─── Leads (Facebook Ads → Appointment) ─────────────────────
 
 model Lead {
-  id              String     @id @default(uuid()) @db.Uuid
-  fullName        String
-  phone           String
-  source          String     @default("FACEBOOK")
-  status          LeadStatus @default(NEW)
-  notes           String?
-  appointmentAt   DateTime?
-  assignedToId    String?    @db.Uuid
-  assignedTo      UserProfile? @relation(fields: [assignedToId], references: [id])
-  convertedToLoanId String?  // Reference if lead became a loan
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id                String       @id @default(uuid()) @db.Uuid
+  fullName          String
+  phone             String
+  source            String       @default("FACEBOOK")
+  status            LeadStatus   @default(NEW)
+  notes             String?
+  appointmentAt     DateTime?
+  assignedToId      String?      @db.Uuid
+  assignedTo        UserProfile? @relation(fields: [assignedToId], references: [id])
+  convertedToLoanId String? // Reference if lead became a loan
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   @@map("leads")
 }
@@ -401,18 +401,18 @@ model Lead {
 
 /// Append-only record of every significant state change.
 model AuditLog {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid
-  user       UserProfile @relation(fields: [userId], references: [id])
-  loanId     String?  @db.Uuid
-  loan       Loan?    @relation(fields: [loanId], references: [id])
-  action     String   // e.g. "LOAN_APPROVED", "RECEIPT_CREATED", "MEMBER_UPDATED"
-  tableName  String?
-  recordId   String?
-  oldValues  Json?
-  newValues  Json?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @db.Uuid
+  user      UserProfile @relation(fields: [userId], references: [id])
+  loanId    String?     @db.Uuid
+  loan      Loan?       @relation(fields: [loanId], references: [id])
+  action    String // e.g. "LOAN_APPROVED", "RECEIPT_CREATED", "MEMBER_UPDATED"
+  tableName String?
+  recordId  String?
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  createdAt DateTime    @default(now())
 
   @@map("audit_logs")
 }
