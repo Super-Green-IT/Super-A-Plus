@@ -21,6 +21,7 @@ interface LoanProduct {
   processingFeeRate: string
   requiresGuarantor: boolean
   isActive: boolean
+  createdAt: string
 }
 
 interface ProductModalProps {
