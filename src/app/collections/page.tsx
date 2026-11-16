@@ -247,6 +247,7 @@ function RecordCollectionModal({
 
   const [loanId, setLoanId] = React.useState('')
   const [amount, setAmount] = React.useState<number>(0)
+  const [idempotencyKey, setIdempotencyKey] = React.useState<string | null>(null)
   const [notes, setNotes] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -275,6 +276,7 @@ function RecordCollectionModal({
   const selectedLoan = loans.find((l) => l.id === loanId)
 
   const handleLoanChange = (lid: string) => {
+    setIdempotencyKey(null)
     setLoanId(lid)
     const l = loans.find((x) => x.id === lid)
     if (l) {
@@ -298,12 +300,15 @@ function RecordCollectionModal({
 
     try {
       setSubmitting(true)
+      const requestKey = idempotencyKey ?? crypto.randomUUID()
+      setIdempotencyKey(requestKey)
       const res = await fetch('/api/collections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           loanId,
           amount,
+          idempotencyKey: requestKey,
           notes: notes.trim() || null,
         }),
       })
@@ -315,6 +320,7 @@ function RecordCollectionModal({
       }
 
       onSuccess()
+      setIdempotencyKey(null)
       onOpenChange(false)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error processing collection')
@@ -408,7 +414,7 @@ function RecordCollectionModal({
                 min={1}
                 step={50}
                 value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                onChange={(e) => { setIdempotencyKey(null); setAmount(Number(e.target.value)) }}
                 required
                 className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
               />
@@ -419,7 +425,7 @@ function RecordCollectionModal({
               <input
                 type="text"
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => { setIdempotencyKey(null); setNotes(e.target.value) }}
                 placeholder="e.g. Centre meeting cash collection, counter receipt"
                 className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
               />

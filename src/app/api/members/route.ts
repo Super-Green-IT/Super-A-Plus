@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { validateNIC } from '@/lib/validation/nic'
+import { authorizeApi } from '@/lib/auth/api'
+import { nextDisplayNumber } from '@/lib/db/numbering'
 
 const memberCreateSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -9,11 +11,14 @@ const memberCreateSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
-  dateOfBirth: z.string().optional().nullable(),
+  dateOfBirth: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'Invalid date of birth').optional().nullable(),
   centreId: z.string().uuid().optional().nullable(),
 })
 
 export async function GET(request: Request) {
+  const auth = await authorizeApi('members:view')
+  if (!auth.user) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')?.trim()
@@ -26,6 +31,9 @@ export async function GET(request: Request) {
 
     if (centreId && centreId !== 'ALL') {
       where.centreId = centreId
+    }
+    if (auth.user.role !== 'ADMIN') {
+      where.centre = { branchId: auth.user.branchId }
     }
 
     if (search) {
@@ -117,6 +125,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi('members:create')
+  if (!auth.user) return auth.response
+
   try {
     const body = await request.json()
     const parsed = memberCreateSchema.safeParse(body)
@@ -129,6 +140,12 @@ export async function POST(request: Request) {
     }
 
     const { fullName, nic, phone, address, gender, dateOfBirth, centreId } = parsed.data
+
+    if (auth.user.role !== 'ADMIN') {
+      if (!centreId) return NextResponse.json({ error: 'A centre in your branch is required' }, { status: 400 })
+      const centre = await prisma.centre.findFirst({ where: { id: centreId, branchId: auth.user.branchId } })
+      if (!centre) return NextResponse.json({ error: 'Centre not found in your branch' }, { status: 404 })
+    }
 
     // Validate NIC
     const nicResult = validateNIC(nic)
@@ -148,25 +165,24 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate next Member Number (e.g. M-0001)
-    const count = await prisma.member.count()
-    const memberNumber = `M-${String(count + 1).padStart(4, '0')}`
-
-    const member = await prisma.member.create({
-      data: {
-        memberNumber,
-        fullName,
-        nic: nicResult.formatted,
-        phone: phone || null,
-        address: address || null,
-        gender: gender || nicResult.gender || null,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        centreId: centreId || null,
-        isActive: true,
-      },
-      include: {
-        centre: { select: { id: true, name: true } },
-      },
+    const member = await prisma.$transaction(async (tx) => {
+      const memberNumber = await nextDisplayNumber(tx, 'member')
+      return tx.member.create({
+        data: {
+          memberNumber,
+          fullName,
+          nic: nicResult.formatted,
+          phone: phone || null,
+          address: address || null,
+          gender: gender || nicResult.gender || null,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+          centreId: centreId || null,
+          isActive: true,
+        },
+        include: {
+          centre: { select: { id: true, name: true } },
+        },
+      })
     })
 
     return NextResponse.json({ member }, { status: 201 })

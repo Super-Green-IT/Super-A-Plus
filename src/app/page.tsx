@@ -118,7 +118,7 @@ export default function DashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-200 text-slate-700">
                   {pendingLoans.map((loan) => (
-                    <tr key={loan.id} className="transition-colors hover:bg-[#faf9f4]">
+                      <tr key={loan.id} className="transition-colors hover:bg-slate-50">
                       <td className="px-4 py-3">
                         <Link href={`/loans/${loan.id}`} className="font-medium text-slate-800 hover:text-emerald-800">{loan.member.fullName}</Link>
                         <div className="mt-1 font-mono text-[11px] tracking-wide text-slate-500">{loan.member.memberNumber || loan.member.id}</div>
@@ -141,15 +141,15 @@ export default function DashboardPage() {
             <p className="mt-1 text-xs text-slate-500">Go to today’s operational records</p>
           </div>
           <nav aria-label="Work areas" className="divide-y divide-slate-200 border-y border-slate-200 bg-white">
-            <Link href="/collections" className="group flex min-h-[68px] items-center justify-between gap-3 px-4 transition-colors hover:bg-[#faf9f4]">
+            <Link href="/collections" className="group flex min-h-[68px] items-center justify-between gap-3 px-4 transition-colors hover:bg-slate-50">
               <span className="flex items-center gap-3"><HandCoins className="h-4 w-4 text-emerald-700" /><span><span className="block text-sm font-medium text-slate-800">Daily collection sheet</span><span className="mt-1 block text-xs text-slate-500">Payments and receipts</span></span></span>
               <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-700" />
             </Link>
-            <Link href="/arrears" className="group flex min-h-[68px] items-center justify-between gap-3 px-4 transition-colors hover:bg-[#faf9f4]">
-              <span className="flex items-center gap-3"><AlertTriangle className="h-4 w-4 text-[#9b5c46]" /><span><span className="block text-sm font-medium text-slate-800">Arrears & follow-ups</span><span className="mt-1 block text-xs text-slate-500">Overdue accounts</span></span></span>
+            <Link href="/arrears" className="group flex min-h-[68px] items-center justify-between gap-3 px-4 transition-colors hover:bg-slate-50">
+              <span className="flex items-center gap-3"><AlertTriangle className="h-4 w-4 text-rose-500" /><span><span className="block text-sm font-medium text-slate-800">Arrears & follow-ups</span><span className="mt-1 block text-xs text-slate-500">Overdue accounts</span></span></span>
               <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-700" />
             </Link>
-            <Link href="/reports" className="group flex min-h-[68px] items-center justify-between gap-3 px-4 transition-colors hover:bg-[#faf9f4]">
+            <Link href="/reports" className="group flex min-h-[68px] items-center justify-between gap-3 px-4 transition-colors hover:bg-slate-50">
               <span className="flex items-center gap-3"><FileText className="h-4 w-4 text-slate-500" /><span><span className="block text-sm font-medium text-slate-800">Financial reports</span><span className="mt-1 block text-xs text-slate-500">Portfolio and PAR</span></span></span>
               <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-700" />
             </Link>

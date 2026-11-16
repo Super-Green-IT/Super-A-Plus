@@ -76,7 +76,7 @@ components:
 
 A formal, restrained cooperative finance workspace built around clear member identity and traceable account activity. Deep green anchors branch navigation and important actions; paper-toned space and clean white records keep dense operational information calm and legible.
 
-The interface uses standard web tables, forms, and navigation. Fine rules organize data, and member numbers travel beside names wherever the current records provide them. The visual language is precise without pretending the screen is a physical ledger.
+The interface uses standard web tables, forms, and navigation. Fine rules organize data, and member numbers travel beside names wherever the current records provide them. The visual language is precise without pretending the screen is a physical ledger. A persistent sidebar control switches between the paper-toned light palette and a deep green charcoal dark palette; the choice is saved on the device.
 
 **Key Characteristics:**
 - Deep green navigation with quiet ivory and white work surfaces.

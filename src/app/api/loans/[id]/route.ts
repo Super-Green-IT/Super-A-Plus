@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { getCurrentUser } from '@/lib/auth/session'
+import { authorizeApi } from '@/lib/auth/api'
+import { hasPermission } from '@/lib/auth/permissions'
 
 const actionSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT', 'DISBURSE', 'SUBMIT']),
@@ -12,11 +13,16 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('loans:view')
+  if (!auth.user) return auth.response
+
   try {
     const { id } = await params
 
-    const loan = await prisma.loan.findUnique({
-      where: { id },
+    const loan = await prisma.loan.findFirst({
+      where: auth.user.role === 'ADMIN'
+        ? { id }
+        : { id, branchId: auth.user.branchId },
       include: {
         member: {
           include: {
@@ -92,9 +98,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi()
+  if (!auth.user) return auth.response
+
   try {
     const { id } = await params
-    const user = await getCurrentUser()
     const body = await request.json()
     const parsed = actionSchema.safeParse(body)
 
@@ -107,8 +115,19 @@ export async function PATCH(
 
     const { action, rejectionReason } = parsed.data
 
-    const loan = await prisma.loan.findUnique({
-      where: { id },
+    const neededPermission = action === 'APPROVE' || action === 'REJECT'
+      ? 'loans:approve'
+      : action === 'DISBURSE'
+        ? 'loans:disburse'
+        : 'loans:create'
+    if (!hasPermission(auth.user.role, neededPermission)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const loan = await prisma.loan.findFirst({
+      where: auth.user.role === 'ADMIN'
+        ? { id }
+        : { id, branchId: auth.user.branchId },
       include: { product: true },
     })
 
@@ -117,52 +136,50 @@ export async function PATCH(
     }
 
     const now = new Date()
+    const scopedLoanWhere = {
+      id,
+      ...(auth.user.role === 'ADMIN' ? {} : { branchId: auth.user.branchId }),
+    }
 
     if (action === 'APPROVE') {
-      if (loan.status !== 'SUBMITTED' && loan.status !== 'DRAFT') {
-        return NextResponse.json({ error: 'Loan cannot be approved from its current status.' }, { status: 400 })
-      }
-
-      const updated = await prisma.loan.update({
-        where: { id },
-        data: {
-          status: 'APPROVED',
-          approvedById: user?.id || null,
-        },
+      const result = await prisma.loan.updateMany({
+        where: { ...scopedLoanWhere, status: { in: ['SUBMITTED', 'DRAFT'] } },
+        data: { status: 'APPROVED', approvedById: auth.user.id },
       })
+      if (result.count !== 1) {
+        return NextResponse.json({ error: 'Loan cannot be approved from its current status.' }, { status: 409 })
+      }
+      const updated = await prisma.loan.findUniqueOrThrow({ where: { id } })
       return NextResponse.json({ loan: updated })
     }
 
     if (action === 'REJECT') {
-      if (loan.status !== 'SUBMITTED' && loan.status !== 'DRAFT') {
-        return NextResponse.json({ error: 'Loan cannot be rejected from its current status.' }, { status: 400 })
-      }
-
-      const updated = await prisma.loan.update({
-        where: { id },
+      const result = await prisma.loan.updateMany({
+        where: { ...scopedLoanWhere, status: { in: ['SUBMITTED', 'DRAFT'] } },
         data: {
           status: 'REJECTED',
-          rejectedById: user?.id || null,
+          rejectedById: auth.user.id,
           rejectionReason: rejectionReason || 'Application rejected by management',
         },
       })
+      if (result.count !== 1) {
+        return NextResponse.json({ error: 'Loan cannot be rejected from its current status.' }, { status: 409 })
+      }
+      const updated = await prisma.loan.findUniqueOrThrow({ where: { id } })
       return NextResponse.json({ loan: updated })
     }
 
     if (action === 'DISBURSE') {
-      if (loan.status !== 'APPROVED') {
-        return NextResponse.json({ error: 'Only approved loans can be disbursed.' }, { status: 400 })
-      }
-
       const updated = await prisma.$transaction(async (tx) => {
-        const disLoan = await tx.loan.update({
-          where: { id },
+        const claimed = await tx.loan.updateMany({
+          where: { ...scopedLoanWhere, status: 'APPROVED' },
           data: {
             status: 'ACTIVE',
             disbursedAt: now,
-            disbursedById: user?.id || null,
+            disbursedById: auth.user.id,
           },
         })
+        if (claimed.count !== 1) return null
 
         // Create initial Double-Entry Ledger Entry for Loan Disbursement
         await tx.ledgerEntry.createMany({
@@ -186,8 +203,11 @@ export async function PATCH(
           ],
         })
 
-        return disLoan
+        return tx.loan.findUniqueOrThrow({ where: { id } })
       })
+      if (!updated) {
+        return NextResponse.json({ error: 'Only approved loans can be disbursed.' }, { status: 409 })
+      }
 
       return NextResponse.json({ loan: updated })
     }

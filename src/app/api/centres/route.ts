@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { authorizeApi } from '@/lib/auth/api'
 
 const centreSchema = z.object({
   name: z.string().min(2, 'Centre name is required'),
@@ -8,12 +9,15 @@ const centreSchema = z.object({
 })
 
 export async function GET(request: Request) {
+  const auth = await authorizeApi('centres:view')
+  if (!auth.user) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const branchId = searchParams.get('branchId')
 
     const centres = await prisma.centre.findMany({
-      where: branchId ? { branchId } : undefined,
+      where: { branchId: auth.user.role === 'ADMIN' ? branchId || undefined : auth.user.branchId! },
       include: {
         branch: { select: { id: true, name: true } },
         _count: { select: { members: true } },
@@ -29,6 +33,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi('branches:manage')
+  if (!auth.user) return auth.response
+
   try {
     const body = await request.json()
     const parsed = centreSchema.safeParse(body)

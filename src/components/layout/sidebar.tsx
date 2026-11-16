@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronLeft, ChevronRight, LogOut, Moon, Sun } from 'lucide-react'
@@ -87,7 +86,9 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile, dark
 
         {filteredNavItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          const isActive = (pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`))) &&
+            !filteredNavItems.some((other) => other.href !== item.href && other.href.startsWith(`${item.href}/`) &&
+              (pathname === other.href || pathname.startsWith(`${other.href}/`)))
 
           return (
             <Link
@@ -165,7 +166,7 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile, dark
                 <span className="h-2 w-2 rounded-full bg-emerald-200" />
                 Connected
               </span>
-              <span className="text-[10px] text-white/55">v1.0.0</span>
+              <span className="text-[10px] text-white/55">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
             </div>
           </div>
         ) : (

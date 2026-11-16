@@ -407,7 +407,7 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
                   )}
                 >
                   <span className={cn(
-                    'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                    'absolute top-0.5 h-4 w-4 rounded-full bg-[#fffefa] shadow transition-transform',
                     form.requiresGuarantor ? 'translate-x-4' : 'translate-x-0.5'
                   )} />
                 </div>
@@ -424,7 +424,7 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
                     )}
                   >
                     <span className={cn(
-                      'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                      'absolute top-0.5 h-4 w-4 rounded-full bg-[#fffefa] shadow transition-transform',
                       form.isActive ? 'translate-x-4' : 'translate-x-0.5'
                     )} />
                   </div>

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { authorizeApi } from '@/lib/auth/api'
+import { productUpdateSchema } from '@/lib/validation/products'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('products:view')
+  if (!auth.user) return auth.response
+
   try {
     const { id } = await params
     const product = await prisma.loanProduct.findUnique({ where: { id } })
@@ -20,22 +25,16 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('settings:manage')
+  if (!auth.user) return auth.response
+
   try {
     const { id } = await params
-    const body = await req.json()
-    const {
-      name,
-      loanType,
-      interestMethod,
-      annualInterestRate,
-      minAmount,
-      maxAmount,
-      minTermWeeks,
-      maxTermWeeks,
-      processingFeeRate,
-      requiresGuarantor,
-      isActive,
-    } = body
+    const parsed = productUpdateSchema.safeParse(await req.json())
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid product data' }, { status: 400 })
+    }
+    const { name, loanType, interestMethod, annualInterestRate, minAmount, maxAmount, minTermWeeks, maxTermWeeks, processingFeeRate, requiresGuarantor, isActive } = parsed.data
 
     // Check unique name collision (exclude self)
     if (name) {
@@ -72,6 +71,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('settings:manage')
+  if (!auth.user) return auth.response
+
   try {
     const { id } = await params
     // Check for active loans using this product

@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import { authorizeApi } from '@/lib/auth/api'
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('members:edit')
+  if (!auth.user) return auth.response
+
   try {
     const { id: memberId } = await params
     const formData = await request.formData()
@@ -19,8 +23,10 @@ export async function POST(
     }
 
     // Verify member exists
-    const member = await prisma.member.findUnique({
-      where: { id: memberId },
+    const member = await prisma.member.findFirst({
+      where: auth.user.role === 'ADMIN'
+        ? { id: memberId }
+        : { id: memberId, centre: { branchId: auth.user.branchId } },
     })
     if (!member) {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 })
@@ -63,8 +69,19 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('members:view')
+  if (!auth.user) return auth.response
+
   try {
     const { id: memberId } = await params
+    const member = await prisma.member.findFirst({
+      where: auth.user.role === 'ADMIN'
+        ? { id: memberId }
+        : { id: memberId, centre: { branchId: auth.user.branchId } },
+      select: { id: true },
+    })
+    if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+
     const documents = await prisma.document.findMany({
       where: { memberId },
       orderBy: { uploadedAt: 'desc' },

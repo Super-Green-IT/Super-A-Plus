@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { formatSLPhone } from '@/lib/validation/nic'
+import { authorizeApi } from '@/lib/auth/api'
 
 const leadCreateSchema = z.object({
   fullName: z.string().min(2, 'Name is required'),
@@ -21,6 +22,9 @@ const leadUpdateSchema = z.object({
 })
 
 export async function GET(request: Request) {
+  const auth = await authorizeApi('leads:manage')
+  if (!auth.user) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')?.trim()
@@ -29,7 +33,11 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(5, parseInt(searchParams.get('limit') || '30', 10)))
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: any = auth.user.role === 'ADMIN'
+      ? {}
+      : auth.user.role === 'BRANCH_MANAGER'
+        ? { assignedTo: { branchId: auth.user.branchId } }
+        : { assignedToId: auth.user.id }
 
     if (status && status !== 'ALL') {
       where.status = status
@@ -54,10 +62,10 @@ export async function GET(request: Request) {
         take: limit,
       }),
       prisma.lead.count({ where }),
-      prisma.lead.count({ where: { status: 'NEW' } }),
-      prisma.lead.count({ where: { status: 'CONTACTED' } }),
-      prisma.lead.count({ where: { status: 'APPOINTMENT_SET' } }),
-      prisma.lead.count({ where: { status: 'CONVERTED' } }),
+      prisma.lead.count({ where: { ...where, status: 'NEW' } }),
+      prisma.lead.count({ where: { ...where, status: 'CONTACTED' } }),
+      prisma.lead.count({ where: { ...where, status: 'APPOINTMENT_SET' } }),
+      prisma.lead.count({ where: { ...where, status: 'CONVERTED' } }),
     ])
 
     return NextResponse.json({
@@ -83,6 +91,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi('leads:manage')
+  if (!auth.user) return auth.response
+
   try {
     const body = await request.json()
     const parsed = leadCreateSchema.safeParse(body)
@@ -98,6 +109,7 @@ export async function POST(request: Request) {
 
     const lead = await prisma.lead.create({
       data: {
+        assignedToId: auth.user.id,
         fullName: fullName.trim(),
         phone: formatSLPhone(phone.trim()),
         source: source.trim() || 'FACEBOOK',
@@ -118,6 +130,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const auth = await authorizeApi('leads:manage')
+  if (!auth.user) return auth.response
+
   try {
     const body = await request.json()
     const parsed = leadUpdateSchema.safeParse(body)
@@ -130,6 +145,14 @@ export async function PATCH(request: Request) {
     }
 
     const { id, status, notes, appointmentAt, fullName, phone } = parsed.data
+
+    const leadAccess = auth.user.role === 'ADMIN'
+      ? { id }
+      : auth.user.role === 'BRANCH_MANAGER'
+        ? { id, assignedTo: { branchId: auth.user.branchId } }
+        : { id, assignedToId: auth.user.id }
+    const accessibleLead = await prisma.lead.findFirst({ where: leadAccess, select: { id: true } })
+    if (!accessibleLead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
 
     const updateData: any = {}
     if (status !== undefined) updateData.status = status

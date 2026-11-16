@@ -2,16 +2,27 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import Decimal from 'decimal.js'
-import { getCurrentUser } from '@/lib/auth/session'
+import { authorizeApi, branchScope } from '@/lib/auth/api'
+import { nextDisplayNumber } from '@/lib/db/numbering'
 
 const collectionSchema = z.object({
   loanId: z.string().uuid('Invalid loan ID'),
-  amount: z.number().positive('Amount must be positive'),
-  notes: z.string().optional().nullable(),
-  collectedAt: z.string().optional(),
+  amount: z.number().finite().positive('Amount must be positive').multipleOf(0.01),
+  notes: z.string().max(500).optional().nullable(),
+  collectedAt: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'Invalid collection date').optional(),
+  idempotencyKey: z.string().uuid(),
 })
 
+class CollectionError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message)
+  }
+}
+
 export async function GET(request: Request) {
+  const auth = await authorizeApi('collections:view')
+  if (!auth.user) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
@@ -20,6 +31,7 @@ export async function GET(request: Request) {
 
     const [receipts, total] = await Promise.all([
       prisma.receipt.findMany({
+        where: { loan: branchScope(auth.user) },
         include: {
           loan: {
             include: {
@@ -42,7 +54,7 @@ export async function GET(request: Request) {
         skip,
         take: limit,
       }),
-      prisma.receipt.count(),
+      prisma.receipt.count({ where: { loan: branchScope(auth.user) } }),
     ])
 
     const formatted = receipts.map((r) => ({
@@ -75,8 +87,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi('collections:create')
+  if (!auth.user) return auth.response
+
+  let submittedKey: string | undefined
+  let submittedLoanId: string | undefined
+  let submittedAmount: number | undefined
+
   try {
-    const user = await getCurrentUser()
     const body = await request.json()
     const parsed = collectionSchema.safeParse(body)
 
@@ -87,142 +105,113 @@ export async function POST(request: Request) {
       )
     }
 
-    const { loanId, amount, notes, collectedAt } = parsed.data
+    const { loanId, amount, notes, collectedAt, idempotencyKey } = parsed.data
+    submittedKey = idempotencyKey
+    submittedLoanId = loanId
+    submittedAmount = amount
 
-    const loan = await prisma.loan.findUnique({
-      where: { id: loanId },
-      include: {
-        installments: {
-          where: {
-            status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] },
-          },
-          orderBy: { weekNumber: 'asc' },
-        },
-        member: true,
-      },
-    })
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "loans" WHERE "id" = ${loanId}::uuid FOR UPDATE`
 
-    if (!loan) {
-      return NextResponse.json({ error: 'Loan not found' }, { status: 404 })
-    }
-
-    if (loan.status !== 'ACTIVE' && loan.status !== 'DISBURSED') {
-      return NextResponse.json(
-        { error: `Cannot collect payment for a loan with status ${loan.status}` },
-        { status: 400 }
-      )
-    }
-
-    if (loan.installments.length === 0) {
-      return NextResponse.json(
-        { error: 'All installments for this loan have already been fully paid.' },
-        { status: 400 }
-      )
-    }
-
-    // Default collector to user or first user in branch
-    let collectorId = user?.id
-    if (!collectorId) {
-      const fallbackStaff = await prisma.userProfile.findFirst()
-      collectorId = fallbackStaff?.id
-    }
-
-    if (!collectorId) {
-      return NextResponse.json({ error: 'No staff user available as collector' }, { status: 400 })
-    }
-
-    const receiptDate = collectedAt ? new Date(collectedAt) : new Date()
-
-    // Generate receipt number (e.g. RCP-0001)
-    const receiptCount = await prisma.receipt.count()
-    const receiptNumber = `RCP-${String(receiptCount + 1).padStart(5, '0')}`
-    const idempotencyKey = `PAY-${loan.id}-${Date.now()}`
-
-    let remainingToAllocate = new Decimal(amount)
-    let totalPrincipalPaid = new Decimal(0)
-    let totalInterestPaid = new Decimal(0)
-
-    const installmentUpdates: {
-      id: string
-      totalPaid: Decimal
-      principalPaid: Decimal
-      interestPaid: Decimal
-      status: 'PAID' | 'PARTIAL'
-      linePrincipal: Decimal
-      lineInterest: Decimal
-    }[] = []
-
-    for (const inst of loan.installments) {
-      if (remainingToAllocate.lte(0)) break
-
-      const totalDue = new Decimal(inst.totalDue)
-      const currentPaid = new Decimal(inst.totalPaid)
-      const pendingDue = totalDue.sub(currentPaid)
-
-      if (remainingToAllocate.gte(pendingDue)) {
-        // Full payment of this installment
-        const principalDue = new Decimal(inst.principalDue)
-        const interestDue = new Decimal(inst.interestDue)
-        const instPrincipalPaid = new Decimal(inst.principalPaid)
-        const instInterestPaid = new Decimal(inst.interestPaid)
-
-        const principalDelta = principalDue.sub(instPrincipalPaid)
-        const interestDelta = interestDue.sub(instInterestPaid)
-
-        installmentUpdates.push({
-          id: inst.id,
-          totalPaid: totalDue,
-          principalPaid: principalDue,
-          interestPaid: interestDue,
-          status: 'PAID',
-          linePrincipal: principalDelta,
-          lineInterest: interestDelta,
-        })
-
-        totalPrincipalPaid = totalPrincipalPaid.add(principalDelta)
-        totalInterestPaid = totalInterestPaid.add(interestDelta)
-        remainingToAllocate = remainingToAllocate.sub(pendingDue)
-      } else {
-        // Partial payment of this installment
-        const portion = remainingToAllocate
-        const principalDue = new Decimal(inst.principalDue)
-        const totalDueVal = new Decimal(inst.totalDue)
-        const principalRatio = totalDueVal.gt(0) ? principalDue.div(totalDueVal) : new Decimal(0.8)
-
-        const linePrincipal = portion.mul(principalRatio).toDecimalPlaces(2)
-        const lineInterest = portion.sub(linePrincipal).toDecimalPlaces(2)
-
-        installmentUpdates.push({
-          id: inst.id,
-          totalPaid: currentPaid.add(portion),
-          principalPaid: new Decimal(inst.principalPaid).add(linePrincipal),
-          interestPaid: new Decimal(inst.interestPaid).add(lineInterest),
-          status: 'PARTIAL',
-          linePrincipal,
-          lineInterest,
-        })
-
-        totalPrincipalPaid = totalPrincipalPaid.add(linePrincipal)
-        totalInterestPaid = totalInterestPaid.add(lineInterest)
-        remainingToAllocate = new Decimal(0)
+      const priorReceipt = await tx.receipt.findUnique({ where: { idempotencyKey } })
+      if (priorReceipt) {
+        const sameRequest = priorReceipt.loanId === loanId && new Decimal(priorReceipt.totalAmount).eq(amount)
+        if (!sameRequest) throw new CollectionError('Idempotency key was already used for another payment', 409)
+        return { receipt: priorReceipt, duplicate: true as const }
       }
-    }
 
-    const resultReceipt = await prisma.$transaction(async (tx) => {
-      // 1. Create Receipt
+      const loan = await tx.loan.findFirst({
+        where: auth.user.role === 'ADMIN'
+          ? { id: loanId }
+          : { id: loanId, branchId: auth.user.branchId },
+        include: {
+          installments: {
+            where: { status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] } },
+            orderBy: { weekNumber: 'asc' },
+          },
+        },
+      })
+      if (!loan) throw new CollectionError('Loan not found', 404)
+      if (loan.status !== 'ACTIVE' && loan.status !== 'DISBURSED') {
+        throw new CollectionError(`Cannot collect payment for a loan with status ${loan.status}`, 400)
+      }
+      if (loan.installments.length === 0) {
+        throw new CollectionError('All installments for this loan have already been fully paid.', 400)
+      }
+
+      const receiptDate = collectedAt ? new Date(collectedAt) : new Date()
+      let remainingToAllocate = new Decimal(amount)
+      let totalPrincipalPaid = new Decimal(0)
+      let totalInterestPaid = new Decimal(0)
+      const installmentUpdates: {
+        id: string
+        totalPaid: Decimal
+        principalPaid: Decimal
+        interestPaid: Decimal
+        status: 'PAID' | 'PARTIAL'
+        linePrincipal: Decimal
+        lineInterest: Decimal
+      }[] = []
+
+      for (const inst of loan.installments) {
+        if (remainingToAllocate.lte(0)) break
+        const totalDue = new Decimal(inst.totalDue)
+        const currentPaid = new Decimal(inst.totalPaid)
+        const pendingDue = totalDue.sub(currentPaid)
+
+        if (remainingToAllocate.gte(pendingDue)) {
+          const principalDelta = new Decimal(inst.principalDue).sub(inst.principalPaid)
+          const interestDelta = new Decimal(inst.interestDue).sub(inst.interestPaid)
+          installmentUpdates.push({
+            id: inst.id,
+            totalPaid: totalDue,
+            principalPaid: new Decimal(inst.principalDue),
+            interestPaid: new Decimal(inst.interestDue),
+            status: 'PAID',
+            linePrincipal: principalDelta,
+            lineInterest: interestDelta,
+          })
+          totalPrincipalPaid = totalPrincipalPaid.add(principalDelta)
+          totalInterestPaid = totalInterestPaid.add(interestDelta)
+          remainingToAllocate = remainingToAllocate.sub(pendingDue)
+        } else {
+          const portion = remainingToAllocate
+          const principalDue = new Decimal(inst.principalDue)
+          const totalDueVal = new Decimal(inst.totalDue)
+          const principalRatio = totalDueVal.gt(0) ? principalDue.div(totalDueVal) : new Decimal(0)
+          const linePrincipal = portion.mul(principalRatio).toDecimalPlaces(2)
+          const lineInterest = portion.sub(linePrincipal).toDecimalPlaces(2)
+          installmentUpdates.push({
+            id: inst.id,
+            totalPaid: currentPaid.add(portion),
+            principalPaid: new Decimal(inst.principalPaid).add(linePrincipal),
+            interestPaid: new Decimal(inst.interestPaid).add(lineInterest),
+            status: 'PARTIAL',
+            linePrincipal,
+            lineInterest,
+          })
+          totalPrincipalPaid = totalPrincipalPaid.add(linePrincipal)
+          totalInterestPaid = totalInterestPaid.add(lineInterest)
+          remainingToAllocate = new Decimal(0)
+        }
+      }
+      if (remainingToAllocate.gt(0)) {
+        throw new CollectionError('Payment exceeds the remaining loan balance', 400)
+      }
+
+      const receiptNumber = await nextDisplayNumber(tx, 'receipt')
       const receipt = await tx.receipt.create({
         data: {
           receiptNumber,
           idempotencyKey,
           loanId: loan.id,
-          collectedById: collectorId,
+          collectedById: auth.user.id,
           collectedAt: receiptDate,
           totalAmount: new Decimal(amount),
           notes: notes || null,
         },
       })
 
-      // 2. Update Installments & Create ReceiptLines
       for (const update of installmentUpdates) {
         await tx.installment.update({
           where: { id: update.id },
@@ -245,7 +234,6 @@ export async function POST(request: Request) {
         })
       }
 
-      // 3. Ledger Entries
       await tx.ledgerEntry.createMany({
         data: [
           {
@@ -278,7 +266,6 @@ export async function POST(request: Request) {
         ],
       })
 
-      // 4. Check if loan is fully paid
       const remainingUnpaidCount = await tx.installment.count({
         where: {
           loanId: loan.id,
@@ -293,12 +280,26 @@ export async function POST(request: Request) {
         })
       }
 
-      return receipt
-    })
+      return { receipt, duplicate: false as const }
+    }, { isolationLevel: 'Serializable' })
 
-    return NextResponse.json({ receipt: resultReceipt }, { status: 201 })
+    return NextResponse.json(result, { status: result.duplicate ? 200 : 201 })
   } catch (error) {
+    if (error instanceof CollectionError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+    if (submittedKey && isUniqueViolation(error)) {
+      const receipt = await prisma.receipt.findUnique({ where: { idempotencyKey: submittedKey } })
+      if (receipt && receipt.loanId === submittedLoanId && new Decimal(receipt.totalAmount).eq(submittedAmount ?? -1)) {
+        return NextResponse.json({ receipt, duplicate: true })
+      }
+      if (receipt) return NextResponse.json({ error: 'Idempotency key was already used for another payment' }, { status: 409 })
+    }
     console.error('Error processing collection:', error)
     return NextResponse.json({ error: 'Failed to record collection receipt' }, { status: 500 })
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002'
 }

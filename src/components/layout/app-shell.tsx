@@ -1,12 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Sidebar } from './sidebar'
 import { Topbar } from './topbar'
 import { useAuth } from '@/components/providers/auth-provider'
 import { X } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -18,7 +17,7 @@ export function AppShell({ children }: AppShellProps) {
   const router = useRouter()
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
-  const [darkMode, setDarkMode] = React.useState(false)
+  const [darkMode, setDarkMode] = React.useState<boolean | null>(null)
   const [loggingOut, setLoggingOut] = React.useState(false)
 
   React.useEffect(() => {
@@ -26,6 +25,7 @@ export function AppShell({ children }: AppShellProps) {
   }, [])
 
   React.useEffect(() => {
+    if (darkMode === null) return
     document.documentElement.classList.toggle('dark', darkMode)
     localStorage.setItem('superaplus-theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
@@ -57,7 +57,7 @@ export function AppShell({ children }: AppShellProps) {
           user={user}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed(!collapsed)}
-          darkMode={darkMode}
+          darkMode={darkMode ?? false}
           onToggleDarkMode={() => setDarkMode((value) => !value)}
           onLogout={handleLogout}
           loggingOut={loggingOut}
@@ -85,7 +85,7 @@ export function AppShell({ children }: AppShellProps) {
               user={user}
               collapsed={false}
               onToggleCollapse={() => {}}
-              darkMode={darkMode}
+              darkMode={darkMode ?? false}
               onToggleDarkMode={() => setDarkMode((value) => !value)}
               onLogout={handleLogout}
               loggingOut={loggingOut}
@@ -97,7 +97,12 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar user={user} onOpenMobileMenu={() => setMobileOpen(true)} />
+        <Topbar
+          user={user}
+          onOpenMobileMenu={() => setMobileOpen(true)}
+          onLogout={handleLogout}
+          loggingOut={loggingOut}
+        />
         <main className="min-w-0 flex-1 overflow-y-auto bg-background px-4 py-5 sm:px-7 sm:py-7 lg:px-9">
           <div className="mx-auto max-w-[1440px]">{children}</div>
         </main>

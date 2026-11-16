@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { authorizeApi, branchScope } from '@/lib/auth/api'
 
 export async function GET() {
+  const auth = await authorizeApi('loans:view')
+  if (!auth.user) return auth.response
+
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -9,6 +13,7 @@ export async function GET() {
     // Fetch active loans with unpaid installments past their due date
     const loansWithArrears = await prisma.loan.findMany({
       where: {
+        ...branchScope(auth.user),
         status: { in: ['ACTIVE', 'DISBURSED'] },
         installments: {
           some: {

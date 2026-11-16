@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { authorizeApi, branchScope } from '@/lib/auth/api'
 
 const branchSchema = z.object({
   name: z.string().min(2, 'Branch name is required'),
@@ -9,8 +10,12 @@ const branchSchema = z.object({
 })
 
 export async function GET() {
+  const auth = await authorizeApi('branches:view')
+  if (!auth.user) return auth.response
+
   try {
     const branches = await prisma.branch.findMany({
+      where: branchScope(auth.user),
       include: {
         centres: {
           orderBy: { name: 'asc' },
@@ -30,6 +35,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi('branches:manage')
+  if (!auth.user) return auth.response
+
   try {
     const body = await request.json()
     const parsed = branchSchema.safeParse(body)

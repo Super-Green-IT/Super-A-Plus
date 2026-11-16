@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import Decimal from 'decimal.js'
-import { getCurrentUser } from '@/lib/auth/session'
+import { authorizeApi, branchScope } from '@/lib/auth/api'
 
 const dayCloseSchema = z.object({
   branchId: z.string().uuid().optional(),
@@ -12,6 +12,9 @@ const dayCloseSchema = z.object({
 })
 
 export async function GET() {
+  const auth = await authorizeApi('accounting:view')
+  if (!auth.user) return auth.response
+
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -20,6 +23,7 @@ export async function GET() {
 
     const [dayCloses, recentLedger, todayReceipts, todayDisbursements, cashFlows] = await Promise.all([
       prisma.dayClose.findMany({
+        where: branchScope(auth.user),
         include: {
           branch: { select: { id: true, name: true } },
           closedBy: { select: { id: true, fullName: true, role: true } },
@@ -28,6 +32,7 @@ export async function GET() {
         take: 15,
       }),
       prisma.ledgerEntry.findMany({
+        where: { loan: branchScope(auth.user) },
         include: {
           loan: { select: { loanNumber: true } },
         },
@@ -36,6 +41,7 @@ export async function GET() {
       }),
       prisma.receipt.findMany({
         where: {
+          loan: branchScope(auth.user),
           collectedAt: { gte: today, lt: tomorrow },
           isReversed: false,
         },
@@ -43,11 +49,13 @@ export async function GET() {
       }),
       prisma.loan.findMany({
         where: {
+          ...branchScope(auth.user),
           disbursedAt: { gte: today, lt: tomorrow },
         },
         select: { principalAmount: true },
       }),
       prisma.cashFlow.findMany({
+        where: branchScope(auth.user),
         include: { branch: { select: { name: true } } },
         orderBy: { date: 'desc' },
         take: 20,
@@ -80,8 +88,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi('dayclose:create')
+  if (!auth.user) return auth.response
+
   try {
-    const user = await getCurrentUser()
     const body = await request.json()
     const parsed = dayCloseSchema.safeParse(body)
 
@@ -92,25 +102,15 @@ export async function POST(request: Request) {
       )
     }
 
-    let { branchId, openingCash, closingCash, notes } = parsed.data
+    const { openingCash, closingCash, notes } = parsed.data
+    const branchId = auth.user.role === 'ADMIN' ? parsed.data.branchId : auth.user.branchId
 
     if (!branchId) {
-      const branch = await prisma.branch.findFirst()
-      branchId = branch?.id
+      return NextResponse.json({ error: 'A branch is required for day close' }, { status: 400 })
     }
 
-    if (!branchId) {
-      return NextResponse.json({ error: 'No branch identified for day close' }, { status: 400 })
-    }
-
-    let staffId = user?.id
-    if (!staffId) {
-      const staff = await prisma.userProfile.findFirst()
-      staffId = staff?.id
-    }
-
-    if (!staffId) {
-      return NextResponse.json({ error: 'No user authenticated for day close' }, { status: 400 })
+    if (auth.user.role !== 'ADMIN' && parsed.data.branchId && parsed.data.branchId !== auth.user.branchId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const today = new Date()
@@ -121,6 +121,7 @@ export async function POST(request: Request) {
     const [todayReceipts, todayDisbursements] = await Promise.all([
       prisma.receipt.findMany({
         where: {
+          loan: branchScope(auth.user),
           collectedAt: { gte: today, lt: tomorrow },
           isReversed: false,
         },
@@ -128,6 +129,7 @@ export async function POST(request: Request) {
       }),
       prisma.loan.findMany({
         where: {
+          ...branchScope(auth.user),
           disbursedAt: { gte: today, lt: tomorrow },
         },
         select: { principalAmount: true },
@@ -156,7 +158,7 @@ export async function POST(request: Request) {
       create: {
         branchId,
         closeDate: today,
-        closedById: staffId,
+        closedById: auth.user.id,
         openingCash: new Decimal(openingCash),
         totalCollected: new Decimal(totalCollected),
         totalDisbursed: new Decimal(totalDisbursed),
@@ -166,7 +168,7 @@ export async function POST(request: Request) {
         notes: notes || null,
       },
       update: {
-        closedById: staffId,
+        closedById: auth.user.id,
         openingCash: new Decimal(openingCash),
         totalCollected: new Decimal(totalCollected),
         totalDisbursed: new Decimal(totalDisbursed),

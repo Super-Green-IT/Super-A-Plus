@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   CreditCard,
   HandCoins,
   BarChart3,
@@ -23,7 +24,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { label: 'Leads', href: '/leads', icon: Megaphone },
+  { label: 'Leads', href: '/leads', icon: Megaphone, permission: 'leads:manage' },
   { label: 'Members', href: '/members', icon: Users, permission: 'members:create' },
   { label: 'Loans', href: '/loans', icon: CreditCard, permission: 'loans:view' },
   { label: 'Collections', href: '/collections', icon: HandCoins, permission: 'collections:create' },
@@ -35,5 +36,6 @@ export const navItems: NavItem[] = [
   },
   { label: 'Arrears', href: '/arrears', icon: ClockAlert, permission: 'loans:view' },
   { label: 'Reports', href: '/reports', icon: BarChart3, permission: 'reports:view' },
+  { label: 'User Management', href: '/settings/users', icon: UserCog, allowedRoles: ['ADMIN'] },
   { label: 'Settings', href: '/settings', icon: Settings, permission: 'settings:manage' },
 ]

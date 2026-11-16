@@ -1,6 +1,13 @@
 import type { Role } from '@prisma/client'
 
 export type Permission =
+  | 'branches:view'
+  | 'centres:view'
+  | 'products:view'
+  | 'members:view'
+  | 'leads:manage'
+  | 'accounting:view'
+  | 'collections:view'
   | 'loans:approve'
   | 'loans:disburse'
   | 'loans:create'
@@ -26,6 +33,13 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reports:view',
     'settings:manage',
     'branches:manage',
+    'branches:view',
+    'centres:view',
+    'products:view',
+    'members:view',
+    'collections:view',
+    'leads:manage',
+    'accounting:view',
   ],
   BRANCH_MANAGER: [
     'loans:approve',
@@ -37,18 +51,36 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'collections:create',
     'dayclose:create',
     'reports:view',
+    'branches:view',
+    'centres:view',
+    'products:view',
+    'members:view',
+    'leads:manage',
+    'collections:view',
+    'accounting:view',
   ],
   ACCOUNTANT: [
     'loans:view',
     'collections:create',
     'dayclose:create',
     'reports:view',
+    'branches:view',
+    'centres:view',
+    'products:view',
+    'members:view',
+    'accounting:view',
+    'collections:view',
   ],
   FIELD_OFFICER: [
     'loans:create',
     'loans:view',
     'members:create',
     'collections:create',
+    'centres:view',
+    'products:view',
+    'members:view',
+    'leads:manage',
+    'collections:view',
   ],
 }
 

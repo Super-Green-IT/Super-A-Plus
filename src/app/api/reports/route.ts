@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { authorizeApi, branchScope } from '@/lib/auth/api'
 
 export async function GET() {
+  const auth = await authorizeApi('reports:view')
+  if (!auth.user) return auth.response
+
   try {
     const today = new Date()
 
@@ -10,7 +14,7 @@ export async function GET() {
         where: { isActive: true },
         include: {
           loans: {
-            where: { status: { in: ['ACTIVE', 'DISBURSED'] } },
+            where: { ...branchScope(auth.user), status: { in: ['ACTIVE', 'DISBURSED'] } },
             include: {
               installments: {
                 select: { totalDue: true, totalPaid: true, status: true },
@@ -20,7 +24,7 @@ export async function GET() {
         },
       }),
       prisma.centre.findMany({
-        where: { isActive: true },
+        where: { ...branchScope(auth.user), isActive: true },
         include: {
           members: {
             include: {
@@ -36,8 +40,11 @@ export async function GET() {
           },
         },
       }),
-      prisma.member.count({ where: { isActive: true } }),
+      prisma.member.count({ where: auth.user.role === 'ADMIN'
+        ? { isActive: true }
+        : { centre: { branchId: auth.user.branchId }, isActive: true } }),
       prisma.loan.findMany({
+        where: branchScope(auth.user),
         include: {
           installments: {
             select: { totalDue: true, totalPaid: true, status: true, dueDate: true },
@@ -45,7 +52,7 @@ export async function GET() {
         },
       }),
       prisma.receipt.findMany({
-        where: { isReversed: false },
+        where: { isReversed: false, loan: branchScope(auth.user) },
         select: { totalAmount: true, collectedAt: true },
         orderBy: { collectedAt: 'desc' },
       }),

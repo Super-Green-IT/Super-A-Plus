@@ -3,19 +3,23 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import Decimal from 'decimal.js'
 import { generateSchedule } from '@/lib/finance/schedule'
-import { getCurrentUser } from '@/lib/auth/session'
+import { authorizeApi, branchScope } from '@/lib/auth/api'
+import { nextDisplayNumber } from '@/lib/db/numbering'
 
 const loanCreateSchema = z.object({
   memberId: z.string().uuid('Invalid member ID'),
   productId: z.string().uuid('Invalid product ID'),
-  principalAmount: z.number().positive('Principal amount must be greater than zero'),
-  termWeeks: z.number().int().min(4, 'Minimum term is 4 weeks'),
-  firstRepaymentDate: z.string(),
+  principalAmount: z.number().finite().positive('Principal amount must be greater than zero').multipleOf(0.01),
+  termWeeks: z.number().int().min(4, 'Minimum term is 4 weeks').max(520),
+  firstRepaymentDate: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'Invalid first repayment date'),
   guarantorMemberId: z.string().uuid().optional().nullable(),
   purposeNotes: z.string().optional().nullable(),
 })
 
 export async function GET(request: Request) {
+  const auth = await authorizeApi('loans:view')
+  if (!auth.user) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')?.trim()
@@ -29,6 +33,7 @@ export async function GET(request: Request) {
     if (status && status !== 'ALL') {
       where.status = status
     }
+    Object.assign(where, branchScope(auth.user))
 
     if (search) {
       where.OR = [
@@ -135,8 +140,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi('loans:create')
+  if (!auth.user) return auth.response
+
   try {
-    const user = await getCurrentUser()
     const body = await request.json()
     const parsed = loanCreateSchema.safeParse(body)
 
@@ -158,8 +165,10 @@ export async function POST(request: Request) {
     } = parsed.data
 
     // 1. Fetch Borrower Member
-    const member = await prisma.member.findUnique({
-      where: { id: memberId },
+    const member = await prisma.member.findFirst({
+      where: auth.user.role === 'ADMIN'
+        ? { id: memberId }
+        : { id: memberId, centre: { branchId: auth.user.branchId } },
       include: { centre: true },
     })
 
@@ -211,8 +220,10 @@ export async function POST(request: Request) {
         )
       }
 
-      const guarantor = await prisma.member.findUnique({
-        where: { id: guarantorMemberId },
+      const guarantor = await prisma.member.findFirst({
+        where: auth.user.role === 'ADMIN'
+          ? { id: guarantorMemberId }
+          : { id: guarantorMemberId, centre: { branchId: auth.user.branchId } },
       })
 
       if (!guarantor || !guarantor.isActive) {
@@ -251,13 +262,9 @@ export async function POST(request: Request) {
 
     const processingFee = new Decimal(principalAmount).mul(product.processingFeeRate).toDecimalPlaces(2)
 
-    // 5. Generate Loan Number (e.g. L-0001)
-    const count = await prisma.loan.count()
-    const loanNumber = `L-${String(count + 1).padStart(4, '0')}`
-
     // Find branch
     let branchId = member.centre?.branchId
-    if (!branchId) {
+    if (!branchId && auth.user.role === 'ADMIN') {
       const headOffice = await prisma.branch.findFirst()
       branchId = headOffice?.id
     }
@@ -268,6 +275,7 @@ export async function POST(request: Request) {
 
     // 6. Prisma Transaction to persist Loan, Guarantor & Installments
     const newLoan = await prisma.$transaction(async (tx) => {
+      const loanNumber = await nextDisplayNumber(tx, 'loan')
       const createdLoan = await tx.loan.create({
         data: {
           loanNumber,
@@ -286,7 +294,7 @@ export async function POST(request: Request) {
           status: 'SUBMITTED',
           purposeNotes: purposeNotes || null,
           firstRepaymentDate: new Date(firstRepaymentDate),
-          submittedById: user?.id || null,
+          submittedById: auth.user.id,
         },
       })
 

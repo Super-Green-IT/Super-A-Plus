@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { validateNIC, formatSLPhone } from '@/lib/validation/nic'
+import { authorizeApi } from '@/lib/auth/api'
 
 const memberUpdateSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters').optional(),
@@ -9,7 +10,7 @@ const memberUpdateSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
-  dateOfBirth: z.string().optional().nullable(),
+  dateOfBirth: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'Invalid date of birth').optional().nullable(),
   centreId: z.string().uuid().optional().nullable(),
   isActive: z.boolean().optional(),
 })
@@ -18,11 +19,16 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('members:view')
+  if (!auth.user) return auth.response
+
   try {
     const { id } = await params
 
-    const member = await prisma.member.findUnique({
-      where: { id },
+    const member = await prisma.member.findFirst({
+      where: auth.user.role === 'ADMIN'
+        ? { id }
+        : { id, centre: { branchId: auth.user.branchId } },
       include: {
         centre: {
           include: { branch: true },
@@ -120,8 +126,19 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await authorizeApi('members:edit')
+  if (!auth.user) return auth.response
+
   try {
     const { id } = await params
+    const existingMember = await prisma.member.findFirst({
+      where: auth.user.role === 'ADMIN'
+        ? { id }
+        : { id, centre: { branchId: auth.user.branchId } },
+      select: { id: true },
+    })
+    if (!existingMember) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+
     const body = await request.json()
     const parsed = memberUpdateSchema.safeParse(body)
 
@@ -195,6 +212,11 @@ export async function PATCH(
     }
 
     if (centreId !== undefined) {
+      if (auth.user.role !== 'ADMIN') {
+        if (!centreId) return NextResponse.json({ error: 'A centre in your branch is required' }, { status: 400 })
+        const centre = await prisma.centre.findFirst({ where: { id: centreId, branchId: auth.user.branchId } })
+        if (!centre) return NextResponse.json({ error: 'Centre not found in your branch' }, { status: 404 })
+      }
       updateData.centreId = centreId || null
     }
 
