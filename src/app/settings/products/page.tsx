@@ -16,25 +16,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProductModal } from '@/components/products/product-modal'
+import { LoanProduct } from '@/types'
 
 type LoanType = 'PERSONAL' | 'BUSINESS'
 type InterestMethod = 'FLAT' | 'REDUCING_BALANCE'
 
-interface LoanProduct {
-  id: string
-  name: string
-  loanType: LoanType
-  interestMethod: InterestMethod
-  annualInterestRate: string
-  minAmount: string
-  maxAmount: string
-  minTermWeeks: number
-  maxTermWeeks: number
-  processingFeeRate: string
-  requiresGuarantor: boolean
-  isActive: boolean
-  createdAt: string
-}
+
 
 function Badge({ children, variant }: { children: React.ReactNode; variant: 'active' | 'inactive' | 'type' | 'method' }) {
   return (

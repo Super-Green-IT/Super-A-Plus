@@ -1,23 +1,16 @@
 import * as React from 'react'
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import { AppShell } from '@/components/layout/app-shell'
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: 'Super A Plus | Microfinance Platform',
-  description: 'Enterprise Microfinance Management Platform',
+  title: 'Super A Plus | Cooperative Finance',
+  description: 'Member accounts, lending and collections for Super A Plus Cooperative Finance.',
 }
 
 export default function RootLayout({
@@ -26,10 +19,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}>
-      <body className="h-full bg-slate-950 font-sans text-slate-100">
+    <html lang="en" className={cn("h-full antialiased", "font-sans", geist.variable)}>
+      <body className="h-full bg-background font-sans text-foreground">
         <AuthProvider>
-          <React.Suspense fallback={<div className="h-screen w-full bg-slate-950" />}>
+          <React.Suspense fallback={<div className="h-screen w-full bg-background" />}>
             <AppShell>{children}</AppShell>
           </React.Suspense>
         </AuthProvider>

@@ -3,13 +3,8 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Shield,
-  Smartphone,
-} from 'lucide-react'
-import { navItems, devNavItems } from './nav-items'
+import { ChevronLeft, ChevronRight, LogOut, Moon, Sun } from 'lucide-react'
+import { navItems } from './nav-items'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/types'
 import { hasPermission } from '@/lib/auth/permissions'
@@ -19,9 +14,13 @@ interface SidebarProps {
   collapsed: boolean
   onToggleCollapse: () => void
   onCloseMobile?: () => void
+  darkMode: boolean
+  onToggleDarkMode: () => void
+  onLogout: () => void
+  loggingOut: boolean
 }
 
-export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: SidebarProps) {
+export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile, darkMode, onToggleDarkMode, onLogout, loggingOut }: SidebarProps) {
   const pathname = usePathname()
 
   // Filter items based on user's role and permissions
@@ -43,36 +42,35 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: Si
   return (
     <aside
       className={cn(
-        'relative flex flex-col border-r border-slate-800 bg-slate-950 transition-all duration-300 ease-in-out z-30 select-none',
-        collapsed ? 'w-18' : 'w-60'
+        'relative z-30 flex flex-col border-r border-emerald-900 bg-emerald-700 text-white transition-[width] duration-200 ease-out select-none',
+        collapsed ? 'w-18' : 'w-64'
       )}
     >
       {/* Brand Header */}
-      <div className="flex h-16 items-center justify-between border-b border-slate-800/80 px-4">
-        {!collapsed ? (
+      <div className={cn(
+        'flex border-b border-white/15',
+        collapsed ? 'h-[52px] justify-center px-2' : 'h-[76px] items-center justify-between px-5'
+      )}>
+        {!collapsed && (
           <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white text-sm font-semibold tracking-tight">
               S+
             </div>
             <div className="flex flex-col overflow-hidden">
-              <span className="font-bold text-sm text-slate-100 tracking-tight leading-tight truncate">
+              <span className="font-semibold text-[15px] text-white tracking-tight leading-tight truncate">
                 Super A Plus
               </span>
-              <span className="text-[10px] text-emerald-400 font-medium tracking-wide uppercase">
+              <span className="mt-1 text-[10px] text-emerald-100 font-medium tracking-[0.14em] uppercase">
                 Microfinance
               </span>
             </div>
           </Link>
-        ) : (
-          <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/40">
-            S+
-          </div>
         )}
 
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="hidden md:flex h-6 w-6 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+          className="hidden md:flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-md border border-white/20 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
@@ -81,9 +79,11 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: Si
 
       {/* Navigation Links */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        <div className={cn('text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2', collapsed ? 'text-center' : 'px-3')}>
-          {collapsed ? '•' : 'Main Menu'}
-        </div>
+        {!collapsed && (
+          <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+            Workspace
+          </div>
+        )}
 
         {filteredNavItems.map((item) => {
           const Icon = item.icon
@@ -96,17 +96,17 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: Si
               onClick={onCloseMobile}
               title={collapsed ? item.label : undefined}
               className={cn(
-                'group flex items-center gap-3 rounded-md px-3 py-2 text-xs font-medium transition-colors',
+                'group flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-[13px] font-medium transition-colors',
                 isActive
-                  ? 'bg-emerald-600/15 text-emerald-400 border border-emerald-500/20'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100',
+                  ? 'bg-white/12 text-white border border-white/15'
+                  : 'text-white/75 hover:bg-white/8 hover:text-white',
                 collapsed && 'justify-center px-0'
               )}
             >
               <Icon
                 className={cn(
                   'h-4 w-4 shrink-0 transition-colors',
-                  isActive ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200'
+                  isActive ? 'text-white' : 'text-white/65 group-hover:text-white'
                 )}
               />
               {!collapsed && (
@@ -116,36 +116,6 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: Si
           )
         })}
 
-        {/* Dev Primitives Link */}
-        <div className="pt-4 border-t border-slate-900 mt-4">
-          {!collapsed && (
-            <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider px-3 mb-2">
-              Development
-            </div>
-          )}
-          {devNavItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onCloseMobile}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                  isActive
-                    ? 'bg-sky-500/15 text-sky-400 border border-sky-500/20'
-                    : 'text-slate-500 hover:bg-slate-900 hover:text-slate-300',
-                  collapsed && 'justify-center px-0'
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-              </Link>
-            )
-          })}
-        </div>
       </div>
 
       {/* Field View Switcher (for Field Officers or Admins testing mobile) */}
@@ -167,18 +137,46 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile }: Si
       )} */}
 
       {/* Bottom Status / Database Mode */}
-      <div className="border-t border-slate-800/80 p-3 bg-slate-950/60 text-[11px] text-slate-500">
+      <div className="border-t border-white/15 p-3 text-[11px] text-white/65">
         {!collapsed ? (
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 truncate">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Connected
-            </span>
-            <span className="font-mono text-[10px] text-slate-400">v1.0.0</span>
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={onToggleDarkMode}
+              className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
+              title={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
+            >
+              {darkMode ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+              <span>{darkMode ? 'Light mode' : 'Dark mode'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={loggingOut}
+              className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              <span>{loggingOut ? 'Signing out…' : 'Sign out'}</span>
+            </button>
+            <div className="flex items-center justify-between px-3 pt-1">
+              <span className="flex items-center gap-1.5 truncate">
+                <span className="h-2 w-2 rounded-full bg-emerald-200" />
+                Connected
+              </span>
+              <span className="text-[10px] text-white/55">v1.0.0</span>
+            </div>
           </div>
         ) : (
-          <div className="flex justify-center">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" title="Connected" />
+          <div className="flex flex-col items-center gap-1.5">
+            <button type="button" onClick={onToggleDarkMode} className="flex h-11 w-11 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white" aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`} title={`Switch to ${darkMode ? 'light' : 'dark'} mode`}>
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button type="button" onClick={onLogout} disabled={loggingOut} className="flex h-11 w-11 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50" aria-label="Sign out" title={loggingOut ? 'Signing out…' : 'Sign out'}>
+              <LogOut className="h-4 w-4" />
+            </button>
+            <span className="mt-1 h-2 w-2 rounded-full bg-emerald-500" title="Connected" />
           </div>
         )}
       </div>

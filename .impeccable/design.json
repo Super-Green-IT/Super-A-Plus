@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-16T04:44:12Z",
+  "title": "Design System: Super A Plus Cooperative Finance",
+  "extensions": {
+    "colorMeta": {
+      "cooperative-ink": { "role": "primary", "displayName": "Cooperative Ink", "canonical": "#274B38", "tonalRamp": ["#12251C", "#274B38", "#31583F", "#396349", "#4F795F", "#7F9A87", "#B4C6B5", "#E5EEE5"] },
+      "cooperative-green": { "role": "secondary", "displayName": "Cooperative Green", "canonical": "#396349", "tonalRamp": ["#183524", "#24563F", "#396349", "#3E704E", "#65886C", "#91A994", "#C0D1C2", "#E8F0E8"] },
+      "paper": { "role": "neutral", "displayName": "Member Book Paper", "canonical": "#EEECDF", "tonalRamp": ["#27271F", "#49483E", "#6D6B60", "#918F83", "#B1AFA3", "#CBC9BE", "#E2E0D6", "#EEECDF"] },
+      "record-white": { "role": "neutral", "displayName": "Record White", "canonical": "#FFFEFA", "tonalRamp": ["#26251F", "#49483F", "#6D6B62", "#918F86", "#B3B1A9", "#CECCC5", "#E8E6DF", "#FFFEFA"] },
+      "rule": { "role": "neutral", "displayName": "Statement Rule", "canonical": "#E2DFD4", "tonalRamp": ["#292820", "#4A493F", "#6E6B60", "#918F84", "#B2B0A4", "#CBC9BE", "#E2DFD4", "#F7F6F0"] },
+      "body-ink": { "role": "neutral", "displayName": "Body Ink", "canonical": "#27372E", "tonalRamp": ["#142019", "#27372E", "#3D4C41", "#566258", "#70796F", "#9AA095", "#C5C8BE", "#E8E9E2"] },
+      "secondary-ink": { "role": "neutral", "displayName": "Quiet Ink", "canonical": "#626D63", "tonalRamp": ["#273028", "#3D493E", "#626D63", "#7C867D", "#9BA39C", "#BAC0BA", "#D7DBD5", "#F0F1ED"] },
+      "caution": { "role": "tertiary", "displayName": "Caution Ochre", "canonical": "#9B6B32", "tonalRamp": ["#39250F", "#60421F", "#805627", "#9B6B32", "#B4864F", "#CBAA7F", "#E2CFB3", "#F5EBDD"] },
+      "arrears": { "role": "tertiary", "displayName": "Arrears Terracotta", "canonical": "#9B5C46", "tonalRamp": ["#3B2019", "#673B2E", "#824B39", "#9B5C46", "#B27A67", "#C9A092", "#DEC6BC", "#F4E9E4"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Page Title", "purpose": "Staff page headings at 24–28px." },
+      "body": { "displayName": "Workhorse Sans", "purpose": "Readable interface copy and records." },
+      "label": { "displayName": "Register Label", "purpose": "Compact table and summary labels." }
+    },
+    "shadows": [
+      { "name": "drawer", "value": "0 12px 32px rgba(23, 63, 48, 0.16)", "purpose": "Separates the mobile navigation drawer from the workspace." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "150ms ease", "purpose": "Short hover and focus state changes; reduced motion disables transitions." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "High-priority workflow action.",
+      "html": "<button class=\"ds-primary\">New loan</button>",
+      "css": ".ds-primary { background: #274B38; color: #FFFFFF; border: 1px solid #274B38; border-radius: 6px; min-height: 44px; padding: 0 16px; font: 600 14px/1.4 'Segoe UI', Arial, sans-serif; transition: background 150ms ease; } .ds-primary:hover { background: #102F24; } .ds-primary:focus-visible { outline: 2px solid #396349; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting action beside the primary workflow action.",
+      "html": "<button class=\"ds-secondary\">Register member</button>",
+      "css": ".ds-secondary { background: #FFFEFA; color: #27372E; border: 1px solid #D0CEC2; border-radius: 6px; min-height: 44px; padding: 0 16px; font: 500 14px/1.4 'Segoe UI', Arial, sans-serif; transition: background 150ms ease; } .ds-secondary:hover { background: #EEECDF; } .ds-secondary:focus-visible { outline: 2px solid #396349; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Entry field for staff forms.",
+      "html": "<label class=\"ds-field-label\">Email address<input class=\"ds-field\" type=\"email\" placeholder=\"officer@example.lk\"></label>",
+      "css": ".ds-field-label { display: grid; gap: 6px; color: #3D4C41; font: 500 14px/1.4 'Segoe UI', Arial, sans-serif; } .ds-field { background: #FFFEFA; color: #27372E; border: 1px solid #D0CEC2; border-radius: 6px; min-height: 44px; padding: 8px 12px; font: 400 14px/1.5 'Segoe UI', Arial, sans-serif; } .ds-field:focus-visible { outline: 2px solid #396349; outline-offset: 2px; border-color: #396349; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Compact loan, collection, or account state.",
+      "html": "<span class=\"ds-chip\"><span class=\"ds-dot\"></span>Paid</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; background: #E5EEE5; color: #274B38; border: 1px solid #D0E0D2; border-radius: 999px; padding: 2px 8px; font: 600 11px/1.4 'Segoe UI', Arial, sans-serif; } .ds-dot { width: 6px; height: 6px; border-radius: 50%; background: #396349; }"
+    },
+    {
+      "name": "Navigation Rail",
+      "kind": "nav",
+      "refersTo": "navigation-rail",
+      "description": "Persistent route navigation with an active link.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link ds-active\" href=\"#\">Members</a><a class=\"ds-nav-link\" href=\"#\">Collections</a></nav>",
+      "css": ".ds-nav { display: grid; gap: 4px; width: 240px; min-height: 240px; padding: 16px 12px; background: #274B38; color: #FFFFFF; font: 500 13px/1.4 'Segoe UI', Arial, sans-serif; } .ds-nav-link { display: flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid transparent; border-radius: 6px; color: rgba(255,255,255,.78); text-decoration: none; } .ds-nav-link:hover { background: rgba(255,255,255,.08); color: #FFFFFF; } .ds-nav-link:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 2px; } .ds-active { color: #FFFFFF; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.15); }"
+    },
+    {
+      "name": "Record Surface",
+      "kind": "card",
+      "refersTo": "record-surface",
+      "description": "White surface for tables and member records, grouped by rules.",
+      "html": "<section class=\"ds-record\"><h2>Pending loan approvals</h2><p>Applications awaiting manager review</p></section>",
+      "css": ".ds-record { background: #FFFEFA; color: #27372E; border-top: 1px solid #E2DFD4; border-bottom: 1px solid #E2DFD4; border-radius: 6px; padding: 16px; } .ds-record h2 { margin: 0; font: 600 16px/1.35 'Segoe UI', Arial, sans-serif; } .ds-record p { margin: 6px 0 0; color: #626D63; font: 400 13px/1.5 'Segoe UI', Arial, sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Cooperative Member Book",
+    "overview": "A formal, restrained cooperative finance workspace built around clear member identity and traceable account activity. Deep green anchors branch navigation and important actions; paper-toned space and clean white records keep dense operational information calm and legible. The interface uses standard web tables, forms, and navigation. Fine rules organize data, and member numbers travel beside names wherever the current records provide them. The visual language is precise without pretending the screen is a physical ledger.",
+    "keyCharacteristics": [
+      "Deep green navigation with quiet ivory and white work surfaces.",
+      "Member and receipt references remain easy to recognize.",
+      "LKR values align consistently and use tabular numerals."
+    ],
+    "rules": [
+      { "name": "The Reference Travels Rule", "body": "Keep the member number or receipt reference close to the name or transaction it identifies.", "section": "colors" },
+      { "name": "The Amounts Stay Comparable Rule", "body": "Use tabular numerals and right alignment for financial columns; never invent a missing amount.", "section": "colors" },
+      { "name": "The Workhorse Type Rule", "body": "Use system sans for interface copy and reserve tabular numerals for values that staff compare.", "section": "typography" },
+      { "name": "The Rule Before the Shadow Rule", "body": "Group financial records with alignment and dividers; reserve shadows for overlays that sit above page content.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep member and receipt references beside the records they identify.",
+      "Do use tabular numerals and right-aligned LKR values.",
+      "Do use rules and spacing to organize dense records.",
+      "Do preserve a visible keyboard focus and reduced-motion behavior."
+    ],
+    "donts": [
+      "Don't fabricate financial values when report data is absent.",
+      "Don't make a physical-ledger costume from textures, faux stamps, or ornamental lines.",
+      "Don't use decorative gradients or card grids as the page structure."
+    ]
+  }
+}
+
+

@@ -45,22 +45,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4 text-slate-100">
-      <div className="max-w-md w-full bg-slate-800 p-8 rounded-xl shadow-lg border border-slate-700">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-emerald-400">Super A Plus</h1>
-          <p className="text-sm text-slate-400 mt-1">Micro Finance Management System</p>
+    <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-8 text-foreground">
+      <div className="w-full max-w-md border-y border-slate-300 bg-white px-6 py-8 sm:px-9 sm:py-10">
+        <div className="mb-8 border-b border-slate-200 pb-6">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-md bg-emerald-700 text-sm font-semibold text-white">S+</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">Cooperative Finance</span>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Staff sign in</h1>
+          <p className="mt-1 text-sm text-slate-500">Super A Plus member services</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded bg-red-950/50 border border-red-500/50 text-red-200 text-sm">
+          <div role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-slate-300">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Email Address
             </label>
             <input
@@ -68,13 +72,14 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              autoComplete="username"
+              className="min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/20"
               placeholder="officer@superaplus.lk"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-slate-300">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Password
             </label>
             <input
@@ -82,7 +87,8 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              autoComplete="current-password"
+              className="min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/20"
               placeholder="••••••••"
             />
           </div>
@@ -90,12 +96,12 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-md transition duration-200 disabled:opacity-50"
+            className="mt-2 min-h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>
-    </div>
+    </main>
   )
 }

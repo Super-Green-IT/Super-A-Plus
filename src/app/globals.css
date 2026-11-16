@@ -1,26 +1,323 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --surface: #fffefa;
+  --brand: #274b38;
+  --brand-mid: #396349;
+  --brand-soft: #e4ece2;
+  --line: #e2dfd4;
+  --muted: oklch(0.97 0 0);
+  --warning: #9b6b32;
+  --danger: #a45443;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: "Segoe UI", Arial, Helvetica, sans-serif;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
+
+  --color-slate-50: #faf9f4;
+  --color-slate-100: #eeecdf;
+  --color-slate-200: #e4e1d6;
+  --color-slate-300: #d0cec2;
+  --color-slate-400: #a4a69a;
+  --color-slate-500: #767d73;
+  --color-slate-600: #59665c;
+  --color-slate-700: #d9d7cc;
+  --color-slate-800: #e7e5dc;
+  --color-slate-900: #eeecdf;
+  --color-slate-950: #fffefa;
+
+  --color-emerald-100: #e5eee5;
+  --color-emerald-200: #d0e0d2;
+  --color-emerald-300: #87a88f;
+  --color-emerald-400: #527560;
+  --color-emerald-500: #396349;
+  --color-emerald-600: #31583f;
+  --color-emerald-700: #274b38;
+  --color-emerald-800: #d0e0d2;
+  --color-emerald-900: #e1ebe0;
+  --color-emerald-950: #edf3eb;
+
+  --color-sky-100: #e4eeeb;
+  --color-sky-400: #47756c;
+  --color-sky-500: #4f7d73;
+  --color-amber-100: #f4ead6;
+  --color-amber-200: #ead7b5;
+  --color-amber-400: #9b6b32;
+  --color-amber-500: #8e5e2c;
+  --color-amber-600: #7e5128;
+  --color-amber-950: #f7f0e2;
+  --color-rose-100: #f6e8e3;
+  --color-rose-200: #edcec4;
+  --color-rose-400: #a45443;
+  --color-rose-500: #984b3c;
+  --color-rose-600: #854033;
+  --color-rose-950: #f7eae5;
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer utilities {
+  .text-slate-100 { color: #27372e; }
+  .text-slate-200 { color: #35483c; }
+  .text-slate-300 { color: #4c5b50; }
+  .text-slate-400 { color: #626d63; }
+  .text-slate-500 { color: #70796f; }
+  .text-slate-600 { color: #566258; }
+  .text-slate-700 { color: #3d4c41; }
+  .text-slate-800 { color: #2f4034; }
+  .text-slate-900 { color: #27372e; }
+  .text-slate-950 { color: #1f3227; }
+  .text-emerald-800 { color: #274b38; }
+  .text-emerald-900 { color: #274b38; }
+  .text-emerald-950 { color: #274b38; }
+  .font-mono:not(code):not(pre) {
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: normal;
   }
 }
 
+html, body { min-height: 100%; }
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+
 body {
-  background: var(--background);
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { letter-spacing: -0.02em; }
+h1 { font-family: inherit; font-weight: 600 !important; }
+
+input, select, textarea {
+  border-color: #d8d6cb;
+  background-color: var(--surface);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  caret-color: var(--brand);
+}
+
+input::placeholder, textarea::placeholder { color: #71796f; opacity: 1; }
+::selection { background: #d9e6d8; color: #274b38; }
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+:focus-visible { outline: 2px solid #396349; outline-offset: 2px; }
+
+@media (pointer: coarse) {
+  input, textarea, select { min-height: 44px; font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.dark {
+  color-scheme: dark;
+  --surface: #1b2a21;
+  --brand: #396349;
+  --brand-mid: #527560;
+  --brand-soft: #263d2e;
+  --line: #3b4a3e;
+  --muted: #aebaae;
+  --warning: #c89a5b;
+  --danger: #cf806b;
+  --color-slate-50: #1a2820;
+  --color-slate-100: #202d25;
+  --color-slate-200: #2a3930;
+  --color-slate-300: #3a4a40;
+  --color-slate-400: #506055;
+  --color-slate-500: #899489;
+  --color-slate-600: #b2baaf;
+  --color-slate-700: #334239;
+  --color-slate-800: #26352c;
+  --color-slate-900: #202d25;
+  --color-slate-950: #17231d;
+  --color-emerald-100: #1f3a2c;
+  --color-emerald-200: #2a4935;
+  --color-emerald-300: #477253;
+  --color-emerald-400: #8eb39a;
+  --color-emerald-500: #a7c8ad;
+  --color-emerald-600: #bdd5c0;
+  --color-emerald-700: #274b38;
+  --color-emerald-800: #d0e0d2;
+  --color-emerald-900: #e1ebe0;
+  --color-emerald-950: #edf3eb;
+  --color-amber-100: #382e1f;
+  --color-amber-200: #51402a;
+  --color-amber-400: #d2a766;
+  --color-amber-500: #dfb879;
+  --color-amber-600: #eccb96;
+  --color-rose-100: #3b2925;
+  --color-rose-200: #563a33;
+  --color-rose-400: #d88b78;
+  --color-rose-500: #e39a86;
+  --color-rose-600: #efb1a0;
+  --color-sky-100: #263735;
+  --color-sky-400: #8dbab0;
+  --color-sky-500: #a5cec4;
+}
+
+@layer utilities {
+  .dark .text-slate-100 { color: #f1f5f1; }
+  .dark .text-slate-200 { color: #e0e9e1; }
+  .dark .text-slate-300 { color: #c7d2c9; }
+  .dark .text-slate-400 { color: #a5b2a7; }
+  .dark .text-slate-500 { color: #98a599; }
+  .dark .text-slate-600 { color: #bcc7bd; }
+  .dark .text-slate-700 { color: #d7dfd7; }
+  .dark .text-slate-800 { color: #e8eee8; }
+  .dark .text-slate-900 { color: #f4f7f4; }
+  .dark .text-slate-950 { color: #ffffff; }
+  .dark .text-emerald-800,
+  .dark .text-emerald-900,
+  .dark .text-emerald-950 { color: #b7d1be; }
+  .dark .text-amber-400,
+  .dark .text-amber-500,
+  .dark .text-amber-600 { color: #e0b875; }
+  .dark .text-rose-400,
+  .dark .text-rose-500,
+  .dark .text-rose-600 { color: #e5a08d; }
+  .dark .text-sky-400,
+  .dark .text-sky-500 { color: #a5cec4; }
+  .dark .bg-white { background-color: #202d25; }
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  border-color: #506055;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder { color: #a5b2a7; }
+.dark ::selection { background: #396349; color: #ffffff; }
+.dark :focus-visible { outline-color: #8eb39a; }
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

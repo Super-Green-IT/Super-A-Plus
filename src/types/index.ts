@@ -25,3 +25,20 @@ export interface SessionUser {
   role: Role
   branchId: string | null
 }
+
+
+export interface LoanProduct {
+  id: string
+  name: string
+  loanType: LoanType
+  interestMethod: InterestMethod
+  annualInterestRate: string
+  minAmount: string
+  maxAmount: string
+  minTermWeeks: number
+  maxTermWeeks: number
+  processingFeeRate: string
+  requiresGuarantor: boolean
+  isActive: boolean
+  createdAt: string
+}

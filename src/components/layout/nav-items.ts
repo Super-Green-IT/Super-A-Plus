@@ -8,7 +8,6 @@ import {
   Settings,
   Landmark,
   ClockAlert,
-  Code2,
 } from 'lucide-react'
 import type { Permission } from '@/lib/auth/permissions'
 import type { Role } from '@/types'
@@ -37,8 +36,4 @@ export const navItems: NavItem[] = [
   { label: 'Arrears', href: '/arrears', icon: ClockAlert, permission: 'loans:view' },
   { label: 'Reports', href: '/reports', icon: BarChart3, permission: 'reports:view' },
   { label: 'Settings', href: '/settings', icon: Settings, permission: 'settings:manage' },
-]
-
-export const devNavItems: NavItem[] = [
-  { label: 'UI Primitives', href: '/dev/components', icon: Code2 },
 ]
