@@ -150,7 +150,7 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
+      <header className="flex flex-col gap-4  pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Team management</h1>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{user?.role === 'ADMIN' ? 'Manage staff access across branches.' : 'Manage employees assigned to your branch.'}</p>

@@ -222,7 +222,7 @@ function NewLoanFormContent({ modal }: { modal: boolean }) {
   return (
     <div className={`mx-auto max-w-4xl space-y-6 ${modal ? 'pb-8' : 'pb-12'}`}>
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+      <div className="flex items-center gap-3  pb-4">
         {modal ? (
           <button type="button" onClick={() => router.back()} aria-label="Close loan application" className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"><X className="h-5 w-5" /></button>
         ) : (

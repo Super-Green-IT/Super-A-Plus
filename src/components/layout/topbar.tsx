@@ -126,12 +126,7 @@ export function Topbar({ user, onOpenMobileMenu, onLogout, loggingOut }: TopbarP
 
       {/* Right: Branch indicator and user profile */}
       <div className="flex items-center gap-3 sm:gap-4">
-        {/* Branch Indicator */}
-        <div className="hidden sm:flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-          <Building2 className="h-3.5 w-3.5 text-emerald-600" />
-          <span className="font-medium text-slate-700">Head Office</span>
-        </div>
-
+       
         {/* Operational notifications */}
         <div className="relative" ref={notificationRef}>
           <button
