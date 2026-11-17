@@ -18,6 +18,7 @@ import {
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const hydrated = React.useSyncExternalStore(() => () => {}, () => true, () => false)
   const [today, setToday] = React.useState<Date | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [reportData, setReportData] = React.useState<any>(null)
@@ -63,10 +64,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-7 sm:space-y-8">
-      <section className="flex flex-col gap-4 border-b border-slate-300 pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <section className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs text-slate-500">Head Office <span aria-hidden="true">·</span> {today ? formatDate(today, 'EEEE, dd MMMM yyyy') : 'Today'}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-800 sm:text-[28px]">Good day, {user?.fullName || 'Staff'}</h1>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-800 sm:text-[28px]">Good day, {hydrated ? user?.fullName || 'Staff' : 'Staff'}</h1>
           <p className="mt-1 text-sm text-slate-500">Member accounts, lending and collections at a glance.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -92,7 +93,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1.8fr)_minmax(280px,0.8fr)]">
         <section className="min-w-0">
-          <div className="mb-3 flex items-end justify-between border-b border-slate-300 pb-3">
+          <div className="mb-3 flex items-end justify-between pb-3">
             <div>
               <h2 className="text-base font-semibold text-slate-800">Pending loan approvals</h2>
               <p className="mt-1 text-xs text-slate-500">Submitted applications awaiting manager review</p>
@@ -136,7 +137,7 @@ export default function DashboardPage() {
         </section>
 
         <aside>
-          <div className="mb-3 border-b border-slate-300 pb-3">
+          <div className="mb-3 pb-3">
             <h2 className="text-base font-semibold text-slate-800">Work areas</h2>
             <p className="mt-1 text-xs text-slate-500">Go to today’s operational records</p>
           </div>

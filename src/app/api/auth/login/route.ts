@@ -3,16 +3,18 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { verifyPassword } from '@/lib/auth/password'
 import { createSession } from '@/lib/auth/session'
+import { readJson } from '@/lib/http/json'
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-})
+  email: z.string().trim().email('Invalid email address').max(254),
+  password: z.string().min(1, 'Password is required').max(72).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Invalid email or password'),
+}).strict()
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const parsed = loginSchema.safeParse(body)
+    const body = await readJson(request)
+    if (!body.success) return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+    const parsed = loginSchema.safeParse(body.value)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -27,22 +29,7 @@ export async function POST(request: Request) {
       where: { email: email.toLowerCase().trim() },
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      )
-    }
-
-    if (!user.isActive) {
-      return NextResponse.json(
-        { error: 'Your account has been deactivated. Please contact an administrator.' },
-        { status: 403 }
-      )
-    }
-
-    const isValidPassword = await verifyPassword(password, user.passwordHash)
-    if (!isValidPassword) {
+    if (!user || !user.isActive || !(await verifyPassword(password, user.passwordHash))) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -57,12 +44,15 @@ export async function POST(request: Request) {
       branchId: user.branchId,
     }
 
-    await createSession(sessionUser)
+    await createSession(sessionUser, user.authVersion)
 
     return NextResponse.json({
       user: sessionUser,
     })
   } catch (error) {
+    if (error instanceof Error && error.message === 'SESSION_CREATION_REJECTED') {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+    }
     console.error('Login error:', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred while processing your request' },

@@ -51,14 +51,6 @@ enum DayCloseStatus {
   CLOSED
 }
 
-enum LeadStatus {
-  NEW
-  CONTACTED
-  APPOINTMENT_SET
-  CONVERTED
-  LOST
-}
-
 enum Gender {
   MALE
   FEMALE
@@ -86,6 +78,7 @@ model UserProfile {
   branchId     String?  @db.Uuid
   branch       Branch?  @relation(fields: [branchId], references: [id])
   isActive     Boolean  @default(true)
+  authVersion  Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -95,7 +88,6 @@ model UserProfile {
   loansDisbursed Loan[]     @relation("DisbursedBy")
   receipts       Receipt[]
   dayCloses      DayClose[]
-  leadsAssigned  Lead[]
   auditLogs      AuditLog[]
 
   @@map("user_profiles")
@@ -167,7 +159,7 @@ model Document {
   memberId    String   @db.Uuid
   member      Member   @relation(fields: [memberId], references: [id])
   label       String // e.g. "NIC Front", "NIC Back", "Photo"
-  storagePath String // Supabase Storage path
+  storagePath String // Private local filename; never a public URL
   mimeType    String?
   uploadedAt  DateTime @default(now())
 
@@ -376,25 +368,6 @@ model DayClose {
 
   @@unique([branchId, closeDate])
   @@map("day_closes")
-}
-
-// ─── Leads (Facebook Ads → Appointment) ─────────────────────
-
-model Lead {
-  id                String       @id @default(uuid()) @db.Uuid
-  fullName          String
-  phone             String
-  source            String       @default("FACEBOOK")
-  status            LeadStatus   @default(NEW)
-  notes             String?
-  appointmentAt     DateTime?
-  assignedToId      String?      @db.Uuid
-  assignedTo        UserProfile? @relation(fields: [assignedToId], references: [id])
-  convertedToLoanId String? // Reference if lead became a loan
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
-  @@map("leads")
 }
 
 // ─── Audit Log ──────────────────────────────────────────────

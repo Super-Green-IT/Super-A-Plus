@@ -5,6 +5,11 @@ const prisma = new PrismaClient()
 
 async function main() {
   console.log('Seeding initial data...')
+  const adminEmail = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase()
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD
+  if (!adminEmail || !adminPassword || Buffer.byteLength(adminPassword, 'utf8') < 12 || Buffer.byteLength(adminPassword, 'utf8') > 72) {
+    throw new Error('Set INITIAL_ADMIN_EMAIL and an INITIAL_ADMIN_PASSWORD between 12 and 72 UTF-8 bytes before seeding.')
+  }
 
   // 1. Head Office Branch
   let headOffice = await prisma.branch.findFirst({
@@ -24,27 +29,22 @@ async function main() {
   }
 
   // 2. Initial Admin User
-  const adminEmail = process.env.INITIAL_ADMIN_EMAIL || 'admin@superaplus.lk'
-  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Admin@123'
-  const passwordHash = await bcrypt.hash(adminPassword, 12)
-
-  const admin = await prisma.userProfile.upsert({
-    where: { email: adminEmail },
-    update: {
-      passwordHash,
-      isActive: true,
-      role: Role.ADMIN,
-      branchId: headOffice.id,
-    },
-    create: {
-      email: adminEmail,
-      fullName: 'Super Administrator',
-      passwordHash,
-      role: Role.ADMIN,
-      branchId: headOffice.id,
-      isActive: true,
-    },
-  })
+  let admin = await prisma.userProfile.findUnique({ where: { email: adminEmail } })
+  if (!admin) {
+    const passwordHash = await bcrypt.hash(adminPassword, 12)
+    admin = await prisma.userProfile.create({
+      data: {
+        email: adminEmail,
+        fullName: 'Super Administrator',
+        passwordHash,
+        role: Role.ADMIN,
+        branchId: headOffice.id,
+        isActive: true,
+      },
+    })
+  } else {
+    console.log('Initial admin already exists; leaving its password and account settings unchanged.')
+  }
   console.log(`Admin user: ${admin.email}`)
 
   // 3. Seed Micro Centres

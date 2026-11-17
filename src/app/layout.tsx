@@ -15,15 +15,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
+  applicationModal,
 }: {
   children: React.ReactNode
+  applicationModal: React.ReactNode
 }) {
   return (
     <html lang="en" className={cn("h-full antialiased", "font-sans", geist.variable)}>
       <body className="h-full bg-background font-sans text-foreground">
         <AuthProvider>
           <React.Suspense fallback={<div className="h-screen w-full bg-background" />}>
-            <AppShell>{children}</AppShell>
+            <AppShell>{children}{applicationModal}</AppShell>
           </React.Suspense>
         </AuthProvider>
       </body>

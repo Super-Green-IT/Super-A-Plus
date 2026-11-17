@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { ChevronLeft, ChevronRight, LogOut, Moon, Sun } from 'lucide-react'
 import { navItems } from './nav-items'
@@ -52,8 +53,8 @@ export function Sidebar({ user, collapsed, onToggleCollapse, onCloseMobile, dark
       )}>
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white text-sm font-semibold tracking-tight">
-              S+
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/25 bg-white">
+              <Image src="/favicon.jpeg" alt="Super A Plus logo" width={40} height={40} className="h-full w-full object-contain" />
             </div>
             <div className="flex flex-col overflow-hidden">
               <span className="font-semibold text-[15px] text-white tracking-tight leading-tight truncate">

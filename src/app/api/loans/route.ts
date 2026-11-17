@@ -5,6 +5,10 @@ import Decimal from 'decimal.js'
 import { generateSchedule } from '@/lib/finance/schedule'
 import { authorizeApi, branchScope } from '@/lib/auth/api'
 import { nextDisplayNumber } from '@/lib/db/numbering'
+import { writeAuditLog } from '@/lib/audit'
+import { parsePagination } from '@/lib/http/query'
+import { readJson } from '@/lib/http/json'
+import { lockGuarantor } from '@/lib/finance/guarantor'
 
 const loanCreateSchema = z.object({
   memberId: z.string().uuid('Invalid member ID'),
@@ -13,8 +17,8 @@ const loanCreateSchema = z.object({
   termWeeks: z.number().int().min(4, 'Minimum term is 4 weeks').max(520),
   firstRepaymentDate: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'Invalid first repayment date'),
   guarantorMemberId: z.string().uuid().optional().nullable(),
-  purposeNotes: z.string().optional().nullable(),
-})
+  purposeNotes: z.string().trim().max(1000).optional().nullable(),
+}).strict()
 
 export async function GET(request: Request) {
   const auth = await authorizeApi('loans:view')
@@ -24,14 +28,18 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')?.trim()
     const status = searchParams.get('status')
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
-    const limit = Math.min(100, Math.max(5, parseInt(searchParams.get('limit') || '30', 10)))
-    const skip = (page - 1) * limit
+    const pagination = parsePagination(searchParams, 30)
+    if (!pagination) return NextResponse.json({ error: 'Invalid pagination values' }, { status: 400 })
+    const { page, limit, skip } = pagination
 
     const where: any = {}
 
+    if (search && search.length > 100) return NextResponse.json({ error: 'Search is too long' }, { status: 400 })
+
     if (status && status !== 'ALL') {
-      where.status = status
+      const parsedStatus = z.enum(['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'DISBURSED', 'ACTIVE', 'CLOSED', 'WRITTEN_OFF']).safeParse(status)
+      if (!parsedStatus.success) return NextResponse.json({ error: 'Invalid loan status' }, { status: 400 })
+      where.status = parsedStatus.data
     }
     Object.assign(where, branchScope(auth.user))
 
@@ -144,8 +152,9 @@ export async function POST(request: Request) {
   if (!auth.user) return auth.response
 
   try {
-    const body = await request.json()
-    const parsed = loanCreateSchema.safeParse(body)
+    const body = await readJson(request)
+    if (!body.success) return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+    const parsed = loanCreateSchema.safeParse(body.value)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -168,12 +177,16 @@ export async function POST(request: Request) {
     const member = await prisma.member.findFirst({
       where: auth.user.role === 'ADMIN'
         ? { id: memberId }
-        : { id: memberId, centre: { branchId: auth.user.branchId } },
-      include: { centre: true },
+        : { id: memberId, centre: { branchId: auth.user.branchId! } },
+      include: { centre: { select: { branchId: true, isActive: true } } },
     })
 
     if (!member) {
       return NextResponse.json({ error: 'Borrower member not found' }, { status: 404 })
+    }
+    if (!member.isActive) return NextResponse.json({ error: 'Inactive members cannot apply for loans' }, { status: 409 })
+    if (!member.centre?.isActive && auth.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Member must be assigned to an active centre' }, { status: 409 })
     }
 
     // 2. Fetch Product
@@ -204,15 +217,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Validate Guarantor if required
-    if (product.requiresGuarantor) {
-      if (!guarantorMemberId) {
-        return NextResponse.json(
-          { error: 'A guarantor is required for this loan product.' },
-          { status: 400 }
-        )
-      }
+    const branchId = member.centre?.branchId ?? (auth.user.role === 'ADMIN'
+      ? (await prisma.branch.findFirst({ where: { name: 'Head Office', isActive: true }, select: { id: true } }))?.id
+      : undefined)
+    if (!branchId) return NextResponse.json({ error: 'No branch available for this loan.' }, { status: 400 })
+    const branchIsActive = await prisma.branch.findFirst({ where: { id: branchId, isActive: true }, select: { id: true } })
+    if (!branchIsActive) return NextResponse.json({ error: 'The member branch is inactive' }, { status: 409 })
 
+    // 3. Validate Guarantor if required
+    if (product.requiresGuarantor && !guarantorMemberId) {
+      return NextResponse.json({ error: 'A guarantor is required for this loan product.' }, { status: 400 })
+    }
+    if (guarantorMemberId) {
       if (guarantorMemberId === memberId) {
         return NextResponse.json(
           { error: 'Borrower cannot act as their own guarantor.' },
@@ -221,16 +237,14 @@ export async function POST(request: Request) {
       }
 
       const guarantor = await prisma.member.findFirst({
-        where: auth.user.role === 'ADMIN'
-          ? { id: guarantorMemberId }
-          : { id: guarantorMemberId, centre: { branchId: auth.user.branchId } },
+        where: { id: guarantorMemberId, isActive: true, centre: { branchId, isActive: true } },
       })
 
       if (!guarantor || !guarantor.isActive) {
         return NextResponse.json({ error: 'Selected guarantor not found or inactive.' }, { status: 400 })
       }
 
-      // Check if guarantor is already locked in an active loan
+      // Check early for a friendly response; the transaction checks again under a lock.
       const activeGuarantee = await prisma.guarantor.findFirst({
         where: {
           memberId: guarantorMemberId,
@@ -262,19 +276,40 @@ export async function POST(request: Request) {
 
     const processingFee = new Decimal(principalAmount).mul(product.processingFeeRate).toDecimalPlaces(2)
 
-    // Find branch
-    let branchId = member.centre?.branchId
-    if (!branchId && auth.user.role === 'ADMIN') {
-      const headOffice = await prisma.branch.findFirst()
-      branchId = headOffice?.id
-    }
-
-    if (!branchId) {
-      return NextResponse.json({ error: 'No branch available for this loan.' }, { status: 400 })
-    }
-
     // 6. Prisma Transaction to persist Loan, Guarantor & Installments
     const newLoan = await prisma.$transaction(async (tx) => {
+      const memberIdsToLock = [...new Set([memberId, ...(guarantorMemberId ? [guarantorMemberId] : [])])].sort()
+      for (const idToLock of memberIdsToLock) {
+        await tx.$queryRaw`SELECT "id" FROM "members" WHERE "id" = ${idToLock}::uuid FOR UPDATE`
+      }
+      const currentMember = await tx.member.findUnique({
+        where: { id: memberId },
+        include: { centre: { select: { branchId: true, isActive: true } } },
+      })
+      const headOffice = currentMember?.centreId ? null : await tx.branch.findFirst({
+        where: { name: 'Head Office', isActive: true },
+        select: { id: true },
+      })
+      const currentMemberBranchId = currentMember?.centre?.branchId ?? headOffice?.id
+      if (!currentMember?.isActive || currentMemberBranchId !== branchId || (currentMember.centre && !currentMember.centre.isActive)) {
+        throw new Error('BORROWER_CHANGED')
+      }
+
+      await tx.$queryRaw`SELECT "id" FROM "loan_products" WHERE "id" = ${productId}::uuid FOR UPDATE`
+      const currentProduct = await tx.loanProduct.findFirst({ where: { id: productId, isActive: true } })
+      if (!currentProduct ||
+        currentProduct.loanType !== product.loanType ||
+        currentProduct.interestMethod !== product.interestMethod ||
+        currentProduct.annualInterestRate.toString() !== product.annualInterestRate.toString() ||
+        currentProduct.minAmount.toString() !== product.minAmount.toString() ||
+        currentProduct.maxAmount.toString() !== product.maxAmount.toString() ||
+        currentProduct.minTermWeeks !== product.minTermWeeks ||
+        currentProduct.maxTermWeeks !== product.maxTermWeeks ||
+        currentProduct.processingFeeRate.toString() !== product.processingFeeRate.toString() ||
+        currentProduct.requiresGuarantor !== product.requiresGuarantor) {
+        throw new Error('PRODUCT_CHANGED')
+      }
+
       const loanNumber = await nextDisplayNumber(tx, 'loan')
       const createdLoan = await tx.loan.create({
         data: {
@@ -299,6 +334,24 @@ export async function POST(request: Request) {
       })
 
       if (guarantorMemberId) {
+        await lockGuarantor(tx, guarantorMemberId)
+        const currentGuarantor = await tx.member.findUnique({
+          where: { id: guarantorMemberId },
+          include: { centre: { select: { branchId: true, isActive: true } } },
+        })
+        if (!currentGuarantor?.isActive || !currentGuarantor.centre?.isActive || currentGuarantor.centre.branchId !== branchId) {
+          throw new Error('GUARANTOR_CHANGED')
+        }
+        const activeGuarantee = await tx.guarantor.findFirst({
+          where: {
+            memberId: guarantorMemberId,
+            loan: { status: { in: ['ACTIVE', 'DISBURSED', 'APPROVED'] } },
+          },
+          include: { loan: { select: { loanNumber: true } } },
+        })
+        if (activeGuarantee) {
+          throw new Error(`GUARANTOR_IN_USE:${activeGuarantee.loan.loanNumber}`)
+        }
         await tx.guarantor.create({
           data: {
             loanId: createdLoan.id,
@@ -321,12 +374,31 @@ export async function POST(request: Request) {
       await tx.installment.createMany({
         data: installmentData,
       })
+      await writeAuditLog(tx, {
+        userId: auth.user.id,
+        action: 'LOAN_CREATED',
+        tableName: 'loans',
+        recordId: createdLoan.id,
+        newValues: { loanNumber: createdLoan.loanNumber, memberId, branchId, productId, principalAmount: createdLoan.principalAmount.toString(), status: createdLoan.status },
+      })
 
       return createdLoan
     })
 
     return NextResponse.json({ loan: newLoan }, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && error.message === 'BORROWER_CHANGED') {
+      return NextResponse.json({ error: 'Borrower account or branch changed. Refresh and try again.' }, { status: 409 })
+    }
+    if (error instanceof Error && error.message === 'PRODUCT_CHANGED') {
+      return NextResponse.json({ error: 'Loan product changed. Refresh and try again.' }, { status: 409 })
+    }
+    if (error instanceof Error && error.message === 'GUARANTOR_CHANGED') {
+      return NextResponse.json({ error: 'Guarantor account or branch changed. Refresh and try again.' }, { status: 409 })
+    }
+    if (error instanceof Error && error.message.startsWith('GUARANTOR_IN_USE:')) {
+      return NextResponse.json({ error: `Selected member is already a guarantor on ongoing loan ${error.message.slice('GUARANTOR_IN_USE:'.length)}` }, { status: 409 })
+    }
     console.error('Error creating loan:', error)
     return NextResponse.json({ error: 'Failed to create loan application' }, { status: 500 })
   }

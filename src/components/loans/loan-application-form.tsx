@@ -7,14 +7,10 @@ import {
   ArrowLeft,
   CreditCard,
   Calculator,
-  UserCheck,
-  Calendar,
   AlertCircle,
-  CheckCircle2,
-  Loader2,
-  Building2,
-  ShieldCheck,
-  ShieldAlert,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from 'lucide-react'
 import { FormSection } from '@/components/ui/form-section'
 import { FieldRow } from '@/components/ui/field-row'
@@ -24,7 +20,7 @@ import { generateSchedule } from '@/lib/finance/schedule'
 import { formatDate } from '@/lib/formatters'
 import Decimal from 'decimal.js'
 
-export default function NewLoanApplicationPage() {
+export default function NewLoanApplicationPage({ modal = false }: { modal?: boolean }) {
   return (
     <React.Suspense
       fallback={
@@ -35,12 +31,12 @@ export default function NewLoanApplicationPage() {
         </div>
       }
     >
-      <NewLoanFormContent />
+      <NewLoanFormContent modal={modal} />
     </React.Suspense>
   )
 }
 
-function NewLoanFormContent() {
+function NewLoanFormContent({ modal }: { modal: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialMemberId = searchParams.get('memberId') || ''
@@ -65,6 +61,29 @@ function NewLoanFormContent() {
 
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [step, setStep] = React.useState(1)
+
+  const continueToNextStep = () => {
+    setError(null)
+    if (step === 1 && (!memberId || !productId)) {
+      setError('Choose a borrower and loan product to continue.')
+      return
+    }
+    if (step === 2) {
+      if (!principalAmount || !Number.isFinite(principalAmount) || !Number.isInteger(termWeeks) || !firstRepaymentDate || !schedulePreview) {
+        setError('Enter a valid loan amount, term, and first repayment date.')
+        return
+      }
+      if (selectedProduct && (
+        principalAmount < Number(selectedProduct.minAmount) || principalAmount > Number(selectedProduct.maxAmount) ||
+        termWeeks < selectedProduct.minTermWeeks || termWeeks > selectedProduct.maxTermWeeks
+      )) {
+        setError('The amount or term is outside the selected product limits.')
+        return
+      }
+    }
+    setStep((current) => Math.min(3, current + 1))
+  }
 
   // Load initial options
   React.useEffect(() => {
@@ -72,7 +91,7 @@ function NewLoanFormContent() {
       try {
         setLoadingData(true)
         const [memRes, prodRes] = await Promise.all([
-          fetch('/api/members?limit=100'),
+          fetch('/api/members?limit=100&activeOnly=true'),
           fetch('/api/products'),
         ])
 
@@ -188,8 +207,11 @@ function NewLoanFormContent() {
         return
       }
 
-      router.push(`/loans/${data.loan.id}`)
-      router.refresh()
+      if (modal) window.location.assign(`/loans/${data.loan.id}`)
+      else {
+        router.push(`/loans/${data.loan.id}`)
+        router.refresh()
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred submitting loan')
     } finally {
@@ -198,24 +220,31 @@ function NewLoanFormContent() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-12">
+    <div className={`mx-auto max-w-4xl space-y-6 ${modal ? 'pb-8' : 'pb-12'}`}>
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-        <Link
-          href="/loans"
-          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
+        {modal ? (
+          <button type="button" onClick={() => router.back()} aria-label="Close loan application" className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"><X className="h-5 w-5" /></button>
+        ) : (
+          <Link href="/loans" className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"><ArrowLeft className="h-5 w-5" /></Link>
+        )}
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-100 sm:text-2xl">
-            Originate Loan Application
+            Loan Application
           </h1>
           <p className="text-xs text-slate-400">
             Select borrower, loan product, terms, and calculate weekly repayment schedule.
           </p>
         </div>
       </div>
+
+      <ol aria-label="Loan application steps" className="grid grid-cols-3 border-y border-slate-700 text-xs">
+        {['Borrower & product', 'Loan terms', 'Guarantor & review'].map((label, index) => (
+          <li key={label} aria-current={step === index + 1 ? 'step' : undefined} className={`border-b-2 px-2 py-3 text-center sm:px-4 ${step === index + 1 ? 'border-emerald-500 font-semibold text-emerald-700 dark:text-emerald-300' : 'border-transparent text-slate-500'}`}>
+            <span className="mr-1.5">{index + 1}.</span>{label}
+          </li>
+        ))}
+      </ol>
 
       {error && (
         <div className="flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-950/40 p-4 text-xs text-rose-200">
@@ -225,6 +254,7 @@ function NewLoanFormContent() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {step === 1 && <>
         {/* 1. Borrower & Product Selection */}
         <FormSection
           title="1. Borrower & Loan Product"
@@ -285,7 +315,9 @@ function NewLoanFormContent() {
             )}
           </FieldRow>
         </FormSection>
+        </>}
 
+        {step === 2 && <>
         {/* 2. Loan Parameters & Live Calculator */}
         <FormSection
           title="2. Loan Terms & Schedule Simulation"
@@ -399,7 +431,9 @@ function NewLoanFormContent() {
             </div>
           )}
         </FormSection>
+        </>}
 
+        {step === 3 && <>
         {/* 3. Guarantor Selection */}
         <FormSection
           title="3. Loan Guarantor"
@@ -437,23 +471,36 @@ function NewLoanFormContent() {
             />
           </FieldRow>
         </FormSection>
+        {selectedMember && selectedProduct && (
+          <section className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+            <h2 className="text-sm font-semibold text-slate-100">Application summary</h2>
+            <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+              <div><dt className="text-slate-500">Borrower</dt><dd className="mt-1 font-medium text-slate-200">{selectedMember.fullName}</dd></div>
+              <div><dt className="text-slate-500">Loan product</dt><dd className="mt-1 font-medium text-slate-200">{selectedProduct.name}</dd></div>
+              <div><dt className="text-slate-500">Amount</dt><dd className="mt-1 font-medium text-slate-200"><MoneyCell amount={principalAmount} /></dd></div>
+              <div><dt className="text-slate-500">Term</dt><dd className="mt-1 font-medium text-slate-200">{termWeeks} weeks</dd></div>
+            </dl>
+          </section>
+        )}
+        </>}
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 border-t border-slate-800 pt-5">
-          <Link
-            href="/loans"
-            className="rounded-md border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-5 py-2 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
-          >
-            <CreditCard className="h-4 w-4" />
-            {submitting ? 'Submitting Application...' : 'Submit Loan Application'}
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-5">
+          {modal ? (
+            <button type="button" onClick={() => router.back()} className="min-h-10 rounded-md border border-slate-700 px-4 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Cancel</button>
+          ) : (
+            <Link href="/loans" className="inline-flex min-h-10 items-center rounded-md border border-slate-700 px-4 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Cancel</Link>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            {step > 1 && <button type="button" onClick={() => { setError(null); setStep((current) => current - 1) }} className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-700 px-4 text-xs font-medium text-slate-300 hover:bg-slate-800"><ChevronLeft className="h-4 w-4" />Back</button>}
+            {step < 3 ? (
+              <button type="button" onClick={continueToNextStep} className="inline-flex min-h-10 items-center gap-1 rounded-md bg-emerald-600 px-5 text-xs font-medium text-white hover:bg-emerald-500">Continue<ChevronRight className="h-4 w-4" /></button>
+            ) : (
+              <button type="submit" disabled={submitting} className="inline-flex min-h-10 items-center gap-2 rounded-md bg-emerald-600 px-5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors shadow-sm cursor-pointer">
+                <CreditCard className="h-4 w-4" />{submitting ? 'Submitting Application...' : 'Submit Loan Application'}
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </div>

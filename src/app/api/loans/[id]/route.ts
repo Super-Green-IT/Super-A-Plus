@@ -3,11 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { authorizeApi } from '@/lib/auth/api'
 import { hasPermission } from '@/lib/auth/permissions'
+import { isAccountingDayClosed, lockAccountingDay } from '@/lib/finance/accounting-day'
+import { writeAuditLog } from '@/lib/audit'
+import { readJson } from '@/lib/http/json'
+import { lockGuarantor } from '@/lib/finance/guarantor'
 
 const actionSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT', 'DISBURSE', 'SUBMIT']),
-  rejectionReason: z.string().optional(),
-})
+  rejectionReason: z.string().trim().max(500).optional(),
+}).strict()
 
 export async function GET(
   _request: Request,
@@ -18,11 +22,12 @@ export async function GET(
 
   try {
     const { id } = await params
+    if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: 'Invalid loan ID' }, { status: 400 })
 
     const loan = await prisma.loan.findFirst({
       where: auth.user.role === 'ADMIN'
         ? { id }
-        : { id, branchId: auth.user.branchId },
+        : { id, branchId: auth.user.branchId! },
       include: {
         member: {
           include: {
@@ -103,8 +108,10 @@ export async function PATCH(
 
   try {
     const { id } = await params
-    const body = await request.json()
-    const parsed = actionSchema.safeParse(body)
+    if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: 'Invalid loan ID' }, { status: 400 })
+    const body = await readJson(request)
+    if (!body.success) return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+    const parsed = actionSchema.safeParse(body.value)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -127,7 +134,7 @@ export async function PATCH(
     const loan = await prisma.loan.findFirst({
       where: auth.user.role === 'ADMIN'
         ? { id }
-        : { id, branchId: auth.user.branchId },
+        : { id, branchId: auth.user.branchId! },
       include: { product: true },
     })
 
@@ -138,39 +145,107 @@ export async function PATCH(
     const now = new Date()
     const scopedLoanWhere = {
       id,
-      ...(auth.user.role === 'ADMIN' ? {} : { branchId: auth.user.branchId }),
+      ...(auth.user.role === 'ADMIN' ? {} : { branchId: auth.user.branchId! }),
     }
 
     if (action === 'APPROVE') {
-      const result = await prisma.loan.updateMany({
-        where: { ...scopedLoanWhere, status: { in: ['SUBMITTED', 'DRAFT'] } },
-        data: { status: 'APPROVED', approvedById: auth.user.id },
+      const updated = await prisma.$transaction(async (tx) => {
+        const guarantee = await tx.guarantor.findUnique({
+          where: { loanId: id },
+          include: { member: { select: { id: true, isActive: true, centre: { select: { branchId: true, isActive: true } } } } },
+        })
+        if ((loan.product.requiresGuarantor && !guarantee) ||
+          (guarantee && (!guarantee.member.isActive || !guarantee.member.centre?.isActive || guarantee.member.centre.branchId !== loan.branchId))) {
+          throw new Error('GUARANTOR_REQUIRED_OR_INACTIVE')
+        }
+        if (guarantee) {
+          await lockGuarantor(tx, guarantee.memberId)
+          const otherActiveGuarantee = await tx.guarantor.findFirst({
+            where: {
+              memberId: guarantee.memberId,
+              loanId: { not: id },
+              loan: { status: { in: ['ACTIVE', 'DISBURSED', 'APPROVED'] } },
+            },
+            include: { loan: { select: { loanNumber: true } } },
+          })
+          if (otherActiveGuarantee) throw new Error(`GUARANTOR_IN_USE:${otherActiveGuarantee.loan.loanNumber}`)
+        }
+        const result = await tx.loan.updateMany({
+          where: { ...scopedLoanWhere, status: { in: ['SUBMITTED', 'DRAFT'] } },
+          data: { status: 'APPROVED', approvedById: auth.user.id },
+        })
+        if (result.count !== 1) return null
+        const changed = await tx.loan.findUniqueOrThrow({ where: { id } })
+        await writeAuditLog(tx, {
+          userId: auth.user.id,
+          action: 'LOAN_APPROVED',
+          tableName: 'loans',
+          recordId: id,
+          oldValues: { status: loan.status },
+          newValues: { status: changed.status },
+        })
+        return changed
       })
-      if (result.count !== 1) {
+      if (!updated) {
         return NextResponse.json({ error: 'Loan cannot be approved from its current status.' }, { status: 409 })
       }
-      const updated = await prisma.loan.findUniqueOrThrow({ where: { id } })
       return NextResponse.json({ loan: updated })
     }
 
     if (action === 'REJECT') {
-      const result = await prisma.loan.updateMany({
-        where: { ...scopedLoanWhere, status: { in: ['SUBMITTED', 'DRAFT'] } },
-        data: {
-          status: 'REJECTED',
-          rejectedById: auth.user.id,
-          rejectionReason: rejectionReason || 'Application rejected by management',
-        },
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.loan.updateMany({
+          where: { ...scopedLoanWhere, status: { in: ['SUBMITTED', 'DRAFT'] } },
+          data: {
+            status: 'REJECTED',
+            rejectedById: auth.user.id,
+            rejectionReason: rejectionReason || 'Application rejected by management',
+          },
+        })
+        if (result.count !== 1) return null
+        const changed = await tx.loan.findUniqueOrThrow({ where: { id } })
+        await writeAuditLog(tx, {
+          userId: auth.user.id,
+          action: 'LOAN_REJECTED',
+          tableName: 'loans',
+          recordId: id,
+          oldValues: { status: loan.status },
+          newValues: { status: changed.status },
+        })
+        return changed
       })
-      if (result.count !== 1) {
+      if (!updated) {
         return NextResponse.json({ error: 'Loan cannot be rejected from its current status.' }, { status: 409 })
       }
-      const updated = await prisma.loan.findUniqueOrThrow({ where: { id } })
+      return NextResponse.json({ loan: updated })
+    }
+
+    if (action === 'SUBMIT') {
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.loan.updateMany({
+          where: { ...scopedLoanWhere, status: 'DRAFT' },
+          data: { status: 'SUBMITTED', submittedById: auth.user.id },
+        })
+        if (result.count !== 1) return null
+        const changed = await tx.loan.findUniqueOrThrow({ where: { id } })
+        await writeAuditLog(tx, {
+          userId: auth.user.id,
+          action: 'LOAN_SUBMITTED',
+          tableName: 'loans',
+          recordId: id,
+          oldValues: { status: loan.status },
+          newValues: { status: changed.status },
+        })
+        return changed
+      })
+      if (!updated) return NextResponse.json({ error: 'Loan cannot be submitted from its current status.' }, { status: 409 })
       return NextResponse.json({ loan: updated })
     }
 
     if (action === 'DISBURSE') {
-      const updated = await prisma.$transaction(async (tx) => {
+      const outcome = await prisma.$transaction(async (tx) => {
+        await lockAccountingDay(tx, loan.branchId, now)
+        if (await isAccountingDayClosed(tx, loan.branchId, now)) return { closed: true as const }
         const claimed = await tx.loan.updateMany({
           where: { ...scopedLoanWhere, status: 'APPROVED' },
           data: {
@@ -179,7 +254,7 @@ export async function PATCH(
             disbursedById: auth.user.id,
           },
         })
-        if (claimed.count !== 1) return null
+        if (claimed.count !== 1) return { loan: null, closed: false as const }
 
         // Create initial Double-Entry Ledger Entry for Loan Disbursement
         await tx.ledgerEntry.createMany({
@@ -203,17 +278,35 @@ export async function PATCH(
           ],
         })
 
-        return tx.loan.findUniqueOrThrow({ where: { id } })
+        const changed = await tx.loan.findUniqueOrThrow({ where: { id } })
+        await writeAuditLog(tx, {
+          userId: auth.user.id,
+          action: 'LOAN_DISBURSED',
+          tableName: 'loans',
+          recordId: id,
+          oldValues: { status: loan.status },
+          newValues: { status: changed.status, principalAmount: loan.principalAmount.toString(), disbursedAt: now.toISOString() },
+        })
+        return { loan: changed, closed: false as const }
       })
-      if (!updated) {
+      if (outcome.closed) {
+        return NextResponse.json({ error: 'This branch is already closed for today' }, { status: 409 })
+      }
+      if (!outcome.loan) {
         return NextResponse.json({ error: 'Only approved loans can be disbursed.' }, { status: 409 })
       }
 
-      return NextResponse.json({ loan: updated })
+      return NextResponse.json({ loan: outcome.loan })
     }
 
     return NextResponse.json({ error: 'Unhandled action' }, { status: 400 })
   } catch (error) {
+    if (error instanceof Error && error.message === 'GUARANTOR_REQUIRED_OR_INACTIVE') {
+      return NextResponse.json({ error: 'An active guarantor is required before approval' }, { status: 409 })
+    }
+    if (error instanceof Error && error.message.startsWith('GUARANTOR_IN_USE:')) {
+      return NextResponse.json({ error: `Selected member is already a guarantor on ongoing loan ${error.message.slice('GUARANTOR_IN_USE:'.length)}` }, { status: 409 })
+    }
     console.error('Error updating loan:', error)
     return NextResponse.json({ error: 'Failed to update loan status' }, { status: 500 })
   }

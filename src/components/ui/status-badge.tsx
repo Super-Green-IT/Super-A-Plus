@@ -1,12 +1,11 @@
 import * as React from 'react'
 import { Badge } from './badge'
 import { cn } from '@/lib/utils'
-import type { LoanStatus, InstallmentStatus, LeadStatus, Role } from '@/types'
+import type { LoanStatus, InstallmentStatus, Role } from '@/types'
 
 type StatusType =
   | LoanStatus
   | InstallmentStatus
-  | LeadStatus
   | Role
   | 'ACTIVE'
   | 'INACTIVE'
@@ -37,13 +36,6 @@ const STATUS_CONFIG: Record<string, StatusConfig> = {
   PAID: { label: 'Paid', variant: 'success', dotColor: 'bg-emerald-400' },
   OVERDUE: { label: 'Overdue', variant: 'danger', dotColor: 'bg-rose-400' },
   WAIVED: { label: 'Waived', variant: 'outline', dotColor: 'bg-slate-400' },
-
-  // LeadStatus
-  NEW: { label: 'New Lead', variant: 'info', dotColor: 'bg-sky-400' },
-  CONTACTED: { label: 'Contacted', variant: 'secondary', dotColor: 'bg-slate-400' },
-  APPOINTMENT_SET: { label: 'Appointment', variant: 'warning', dotColor: 'bg-amber-400' },
-  CONVERTED: { label: 'Converted', variant: 'success', dotColor: 'bg-emerald-400' },
-  LOST: { label: 'Lost', variant: 'danger', dotColor: 'bg-rose-400' },
 
   // Roles
   ADMIN: { label: 'Admin', variant: 'info', dotColor: 'bg-sky-400' },

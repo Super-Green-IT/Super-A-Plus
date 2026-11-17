@@ -3,7 +3,6 @@ import type {
   LoanStatus,
   InstallmentStatus,
   DayCloseStatus,
-  LeadStatus,
   InterestMethod,
   LoanType,
 } from '@prisma/client'
@@ -13,7 +12,6 @@ export type {
   LoanStatus,
   InstallmentStatus,
   DayCloseStatus,
-  LeadStatus,
   InterestMethod,
   LoanType,
 }

@@ -23,7 +23,7 @@ Super A Plus supports microfinance operations across member management, loans, c
 
 ## Capabilities and Constraints
 
-- Current application routes cover the dashboard, leads, members, loans, collections, accounting, arrears, reports, and settings.
+- Current application routes cover the dashboard, members, loans, collections, accounting, arrears, reports, and settings.
 - The initial plan describes a separate `/field` experience with offline collection and sync. That route is not present in the current application and remains planned work.
 - Navigation is role aware for administrators, branch managers, accountants, and field officers. Server-side authorization remains authoritative.
 - Keep paid, due, and overdue amounts distinct; use consistent LKR formatting and right-aligned financial values.

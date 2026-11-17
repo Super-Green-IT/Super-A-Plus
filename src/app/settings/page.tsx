@@ -26,8 +26,8 @@ export default function SettingsHubPage() {
       badge: '2 Products',
     },
     {
-      title: 'Users & System Roles',
-      description: 'Manage staff user accounts, assign branch access, and control RBAC permissions.',
+      title: 'Team Management',
+      description: 'Manage staff accounts, roles, and branch assignments.',
       href: '/settings/users',
       icon: Users2,
       badge: 'RBAC',

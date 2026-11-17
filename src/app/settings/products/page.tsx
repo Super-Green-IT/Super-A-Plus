@@ -18,19 +18,14 @@ import { cn } from '@/lib/utils'
 import { ProductModal } from '@/components/products/product-modal'
 import { LoanProduct } from '@/types'
 
-type LoanType = 'PERSONAL' | 'BUSINESS'
-type InterestMethod = 'FLAT' | 'REDUCING_BALANCE'
-
-
-
 function Badge({ children, variant }: { children: React.ReactNode; variant: 'active' | 'inactive' | 'type' | 'method' }) {
   return (
     <span className={cn(
       'inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase',
-      variant === 'active' && 'bg-emerald-500/15 text-emerald-400',
-      variant === 'inactive' && 'bg-slate-700 text-slate-500',
-      variant === 'type' && 'bg-blue-500/15 text-blue-400',
-      variant === 'method' && 'bg-violet-500/15 text-violet-400',
+      variant === 'active' && 'bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200',
+      variant === 'inactive' && 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400',
+      variant === 'type' && 'bg-sky-50 text-sky-800 dark:bg-sky-400/10 dark:text-sky-200',
+      variant === 'method' && 'bg-violet-50 text-violet-800 dark:bg-violet-400/10 dark:text-violet-200',
     )}>
       {children}
     </span>
@@ -58,7 +53,7 @@ export default function ProductsPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/products')
+      const res = await fetch('/api/products?includeInactive=true')
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setProducts(data.products)
@@ -122,17 +117,17 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div className="flex items-start justify-between border-b border-slate-800 pb-5">
+      <div className="flex items-start justify-between border-b border-slate-200 pb-5 dark:border-white/10">
         <div className="flex items-center gap-3">
           <Link
             href="/settings"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
           >
             <ChevronLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-100">Loan Products</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Loan Products</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
               {activeCount} active · {totalCount} total
             </p>
           </div>
@@ -140,14 +135,14 @@ export default function ProductsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={fetchProducts}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
             title="Refresh"
           >
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           </button>
           <button
             onClick={openAdd}
-            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+            className="flex min-h-10 items-center gap-2 rounded-md bg-[#274b38] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#396349] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
           >
             <Plus className="h-4 w-4" />
             New Product
@@ -157,7 +152,7 @@ export default function ProductsPage() {
 
       {/* Error banner */}
       {(error || deleteError) && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-xs text-red-400">
+        <div role="alert" className="flex items-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm text-rose-800 dark:border-rose-300/20 dark:bg-rose-300/10 dark:text-rose-200">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error || deleteError}
         </div>
@@ -167,20 +162,20 @@ export default function ProductsPage() {
       {loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-800/60" />
+            <div key={i} className="h-28 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
           ))}
         </div>
       )}
 
       {/* Empty state */}
       {!loading && products.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 py-16 text-center">
-          <Package className="h-10 w-10 text-slate-600 mb-3" />
-          <p className="text-sm font-medium text-slate-300">No loan products yet</p>
-          <p className="text-xs text-slate-500 mt-1">Create your first lending product to get started.</p>
+        <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white py-16 text-center dark:border-white/15 dark:bg-[#202d25]">
+          <Package className="mb-3 h-10 w-10 text-slate-500 dark:text-slate-400" />
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">No loan products yet</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Create your first lending product to get started.</p>
           <button
             onClick={openAdd}
-            className="mt-4 flex items-center gap-1.5 rounded-lg bg-emerald-600/80 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+            className="mt-4 flex min-h-10 items-center gap-2 rounded-md bg-[#274b38] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#396349]"
           >
             <Plus className="h-4 w-4" />
             New Product
@@ -195,21 +190,21 @@ export default function ProductsPage() {
             <div
               key={product.id}
               className={cn(
-                'group relative rounded-xl border bg-slate-900/60 p-5 transition-all',
+                'group relative rounded-md border bg-white p-5 transition-colors dark:bg-[#202d25]',
                 product.isActive
-                  ? 'border-slate-800 hover:border-slate-700'
-                  : 'border-slate-800/50 opacity-60'
+                  ? 'border-slate-200 hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20'
+                  : 'border-slate-200 opacity-60 dark:border-white/10'
               )}
             >
               <div className="flex items-start justify-between gap-4">
                 {/* Left: identity */}
                 <div className="flex items-start gap-4 min-w-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800">
-                    <Package className="h-5 w-5 text-emerald-400" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e4ece2] dark:bg-emerald-300/10">
+                    <Package className="h-5 w-5 text-[#274b38] dark:text-emerald-200" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h2 className="text-sm font-semibold text-slate-100 truncate">{product.name}</h2>
+                      <h2 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{product.name}</h2>
                       <Badge variant={product.isActive ? 'active' : 'inactive'}>
                         {product.isActive ? 'Active' : 'Inactive'}
                       </Badge>
@@ -219,29 +214,29 @@ export default function ProductsPage() {
                       </Badge>
                     </div>
                     {/* Stats row */}
-                    <div className="flex flex-wrap gap-4 text-[11px] text-slate-400">
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600 dark:text-slate-400">
                       <span className="flex items-center gap-1">
-                        <Percent className="h-3 w-3 text-slate-500" />
-                        <span className="font-mono text-slate-200">{fmtPct(product.annualInterestRate)}</span>
+                        <Percent className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                        <span className="tabular-nums font-medium text-slate-800 dark:text-slate-200">{fmtPct(product.annualInterestRate)}</span>
                         <span>p.a.</span>
                       </span>
                       <span className="flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3 text-slate-500" />
-                        <span className="font-mono">LKR {fmt(product.minAmount)}</span>
+                        <TrendingUp className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                        <span className="tabular-nums">LKR {fmt(product.minAmount)}</span>
                         <span>–</span>
-                        <span className="font-mono">LKR {fmt(product.maxAmount)}</span>
+                        <span className="tabular-nums">LKR {fmt(product.maxAmount)}</span>
                       </span>
                       <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-slate-500" />
-                        <span className="font-mono">{product.minTermWeeks}–{product.maxTermWeeks}</span>
+                        <Clock className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                        <span className="tabular-nums">{product.minTermWeeks}–{product.maxTermWeeks}</span>
                         <span>weeks</span>
                       </span>
-                      <span className="flex items-center gap-1 text-slate-500">
+                      <span className="flex items-center gap-1">
                         Processing fee:
-                        <span className="font-mono text-slate-400">{fmtPct(product.processingFeeRate)}</span>
+                        <span className="tabular-nums text-slate-800 dark:text-slate-300">{fmtPct(product.processingFeeRate)}</span>
                       </span>
                       {product.requiresGuarantor && (
-                        <span className="text-amber-500/80">Guarantor required</span>
+                        <span className="text-amber-800 dark:text-amber-300">Guarantor required</span>
                       )}
                     </div>
                   </div>
@@ -251,7 +246,7 @@ export default function ProductsPage() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => openEdit(product)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                    className="flex h-9 w-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
                     title="Edit product"
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -259,7 +254,7 @@ export default function ProductsPage() {
                   <button
                     onClick={() => handleDelete(product)}
                     disabled={deleting === product.id}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-40"
+                    className="flex h-9 w-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-rose-400/10 dark:hover:text-rose-300"
                     title="Delete product"
                   >
                     {deleting === product.id ? (

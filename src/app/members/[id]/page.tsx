@@ -627,7 +627,7 @@ function MemberProfileContent() {
                         />
                       ) : (
                         <div className="text-center text-xs text-slate-400">
-                          PDF Document
+                          {doc.mimeType === 'application/pdf' ? 'PDF Document' : 'Download document'}
                         </div>
                       )}
                     </div>

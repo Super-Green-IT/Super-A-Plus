@@ -3,27 +3,30 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import Decimal from 'decimal.js'
 import { authorizeApi, branchScope } from '@/lib/auth/api'
+import { getLocalDayRange, isAccountingDayClosed, lockAccountingDay } from '@/lib/finance/accounting-day'
+import { writeAuditLog } from '@/lib/audit'
+import { readJson } from '@/lib/http/json'
 
 const dayCloseSchema = z.object({
   branchId: z.string().uuid().optional(),
-  openingCash: z.number().min(0),
-  closingCash: z.number().min(0),
-  notes: z.string().optional().nullable(),
-})
+  openingCash: z.number().finite().min(0).multipleOf(0.01),
+  closingCash: z.number().finite().min(0).multipleOf(0.01),
+  notes: z.string().max(1000).optional().nullable(),
+}).strict()
 
 export async function GET() {
   const auth = await authorizeApi('accounting:view')
   if (!auth.user) return auth.response
 
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    const { start: today, end: tomorrow } = getLocalDayRange(new Date())
+    const accountingScope = auth.user.role === 'ADMIN' && auth.user.branchId
+      ? { branchId: auth.user.branchId }
+      : branchScope(auth.user)
 
     const [dayCloses, recentLedger, todayReceipts, todayDisbursements, cashFlows] = await Promise.all([
       prisma.dayClose.findMany({
-        where: branchScope(auth.user),
+        where: accountingScope,
         include: {
           branch: { select: { id: true, name: true } },
           closedBy: { select: { id: true, fullName: true, role: true } },
@@ -32,44 +35,38 @@ export async function GET() {
         take: 15,
       }),
       prisma.ledgerEntry.findMany({
-        where: { loan: branchScope(auth.user) },
+        where: { loan: accountingScope },
         include: {
           loan: { select: { loanNumber: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: 30,
       }),
-      prisma.receipt.findMany({
+      prisma.receipt.aggregate({
         where: {
-          loan: branchScope(auth.user),
+          loan: accountingScope,
           collectedAt: { gte: today, lt: tomorrow },
           isReversed: false,
         },
-        select: { totalAmount: true },
+        _sum: { totalAmount: true },
       }),
-      prisma.loan.findMany({
+      prisma.loan.aggregate({
         where: {
-          ...branchScope(auth.user),
+          ...accountingScope,
           disbursedAt: { gte: today, lt: tomorrow },
         },
-        select: { principalAmount: true },
+        _sum: { principalAmount: true },
       }),
       prisma.cashFlow.findMany({
-        where: branchScope(auth.user),
+        where: accountingScope,
         include: { branch: { select: { name: true } } },
         orderBy: { date: 'desc' },
         take: 20,
       }),
     ])
 
-    const totalCollectedToday = todayReceipts.reduce(
-      (sum, r) => sum + Number(r.totalAmount),
-      0
-    )
-    const totalDisbursedToday = todayDisbursements.reduce(
-      (sum, l) => sum + Number(l.principalAmount),
-      0
-    )
+    const totalCollectedToday = Number(todayReceipts._sum.totalAmount ?? 0)
+    const totalDisbursedToday = Number(todayDisbursements._sum.principalAmount ?? 0)
 
     return NextResponse.json({
       dayCloses,
@@ -92,8 +89,9 @@ export async function POST(request: Request) {
   if (!auth.user) return auth.response
 
   try {
-    const body = await request.json()
-    const parsed = dayCloseSchema.safeParse(body)
+    const body = await readJson(request)
+    if (!body.success) return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+    const parsed = dayCloseSchema.safeParse(body.value)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -103,84 +101,72 @@ export async function POST(request: Request) {
     }
 
     const { openingCash, closingCash, notes } = parsed.data
-    const branchId = auth.user.role === 'ADMIN' ? parsed.data.branchId : auth.user.branchId
+    const branchId = auth.user.role === 'ADMIN' ? parsed.data.branchId ?? auth.user.branchId : auth.user.branchId
 
     if (!branchId) {
       return NextResponse.json({ error: 'A branch is required for day close' }, { status: 400 })
     }
+    const activeBranch = await prisma.branch.findFirst({ where: { id: branchId, isActive: true }, select: { id: true } })
+    if (!activeBranch) return NextResponse.json({ error: 'Active branch not found' }, { status: 404 })
 
     if (auth.user.role !== 'ADMIN' && parsed.data.branchId && parsed.data.branchId !== auth.user.branchId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    const today = getLocalDayRange(new Date()).start
+    const dayClose = await prisma.$transaction(async (tx) => {
+      const { start, end } = await lockAccountingDay(tx, branchId, today)
+      if (await isAccountingDayClosed(tx, branchId, today)) {
+        throw new Error('DAY_ALREADY_CLOSED')
+      }
 
-    const [todayReceipts, todayDisbursements] = await Promise.all([
-      prisma.receipt.findMany({
-        where: {
-          loan: branchScope(auth.user),
-          collectedAt: { gte: today, lt: tomorrow },
-          isReversed: false,
-        },
-        select: { totalAmount: true },
-      }),
-      prisma.loan.findMany({
-        where: {
-          ...branchScope(auth.user),
-          disbursedAt: { gte: today, lt: tomorrow },
-        },
-        select: { principalAmount: true },
-      }),
-    ])
+      const [collected, disbursed] = await Promise.all([
+        tx.receipt.aggregate({
+          where: { loan: { branchId }, collectedAt: { gte: start, lt: end }, isReversed: false },
+          _sum: { totalAmount: true },
+        }),
+        tx.loan.aggregate({
+          where: { branchId, disbursedAt: { gte: start, lt: end } },
+          _sum: { principalAmount: true },
+        }),
+      ])
+      const totalCollected = collected._sum.totalAmount ?? new Decimal(0)
+      const totalDisbursed = disbursed._sum.principalAmount ?? new Decimal(0)
+      const expectedClosing = new Decimal(openingCash).add(totalCollected).sub(totalDisbursed)
+      const variance = new Decimal(closingCash).sub(expectedClosing)
 
-    const totalCollected = todayReceipts.reduce(
-      (sum, r) => sum + Number(r.totalAmount),
-      0
-    )
-    const totalDisbursed = todayDisbursements.reduce(
-      (sum, l) => sum + Number(l.principalAmount),
-      0
-    )
-
-    const expectedClosing = openingCash + totalCollected - totalDisbursed
-    const variance = closingCash - expectedClosing
-
-    const dayClose = await prisma.dayClose.upsert({
-      where: {
-        branchId_closeDate: {
+      const created = await tx.dayClose.create({
+        data: {
           branchId,
-          closeDate: today,
+          closeDate: start,
+          closedById: auth.user.id,
+          openingCash: new Decimal(openingCash),
+          totalCollected,
+          totalDisbursed,
+          closingCash: new Decimal(closingCash),
+          variance,
+          status: 'CLOSED',
+          notes: notes || null,
         },
-      },
-      create: {
-        branchId,
-        closeDate: today,
-        closedById: auth.user.id,
-        openingCash: new Decimal(openingCash),
-        totalCollected: new Decimal(totalCollected),
-        totalDisbursed: new Decimal(totalDisbursed),
-        closingCash: new Decimal(closingCash),
-        variance: new Decimal(variance),
-        status: 'CLOSED',
-        notes: notes || null,
-      },
-      update: {
-        closedById: auth.user.id,
-        openingCash: new Decimal(openingCash),
-        totalCollected: new Decimal(totalCollected),
-        totalDisbursed: new Decimal(totalDisbursed),
-        closingCash: new Decimal(closingCash),
-        variance: new Decimal(variance),
-        status: 'CLOSED',
-        notes: notes || null,
-      },
+      })
+      await writeAuditLog(tx, {
+        userId: auth.user.id,
+        action: 'DAY_CLOSED',
+        tableName: 'day_closes',
+        recordId: created.id,
+        newValues: { branchId, closeDate: start.toISOString(), totalCollected: totalCollected.toString(), totalDisbursed: totalDisbursed.toString(), variance: variance.toString() },
+      })
+      return created
     })
 
     return NextResponse.json({ dayClose }, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && error.message === 'DAY_ALREADY_CLOSED') {
+      return NextResponse.json({ error: 'This branch has already been closed for today' }, { status: 409 })
+    }
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+      return NextResponse.json({ error: 'This branch has already been closed for today' }, { status: 409 })
+    }
     console.error('Error submitting day close:', error)
     return NextResponse.json({ error: 'Failed to record day close' }, { status: 500 })
   }

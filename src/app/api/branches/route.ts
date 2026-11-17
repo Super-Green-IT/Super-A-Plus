@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { authorizeApi, branchScope } from '@/lib/auth/api'
+import { authorizeApi } from '@/lib/auth/api'
+import { writeAuditLog } from '@/lib/audit'
+import { readJson } from '@/lib/http/json'
 
 const branchSchema = z.object({
-  name: z.string().min(2, 'Branch name is required'),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-})
+  name: z.string().trim().min(2, 'Branch name is required').max(100),
+  address: z.string().trim().max(500).optional(),
+  phone: z.string().trim().max(40).optional(),
+}).strict()
 
 export async function GET() {
   const auth = await authorizeApi('branches:view')
@@ -15,7 +17,7 @@ export async function GET() {
 
   try {
     const branches = await prisma.branch.findMany({
-      where: branchScope(auth.user),
+      where: auth.user.role === 'ADMIN' ? {} : { id: auth.user.branchId! },
       include: {
         centres: {
           orderBy: { name: 'asc' },
@@ -39,8 +41,9 @@ export async function POST(request: Request) {
   if (!auth.user) return auth.response
 
   try {
-    const body = await request.json()
-    const parsed = branchSchema.safeParse(body)
+    const body = await readJson(request)
+    if (!body.success) return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+    const parsed = branchSchema.safeParse(body.value)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -49,8 +52,16 @@ export async function POST(request: Request) {
       )
     }
 
-    const branch = await prisma.branch.create({
-      data: parsed.data,
+    const branch = await prisma.$transaction(async (tx) => {
+      const created = await tx.branch.create({ data: parsed.data })
+      await writeAuditLog(tx, {
+        userId: auth.user.id,
+        action: 'BRANCH_CREATED',
+        tableName: 'branches',
+        recordId: created.id,
+        newValues: { name: created.name, isActive: created.isActive },
+      })
+      return created
     })
 
     return NextResponse.json({ branch }, { status: 201 })

@@ -1,5 +1,24 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Local member document storage
+
+Member documents are stored outside `public/` in `storage/documents/` by default. Set `DOCUMENT_STORAGE_DIR` to a persistent local directory if needed. Keep this directory backed up with the database; it contains member identity documents and is excluded from Git.
+
+Before migrating existing member documents, back up the database and the `public/uploads/documents/` directory. Run `npm run documents:migrate-private` to review the migration count, then `npm run documents:migrate-private -- --apply` to copy files to private storage, update their database records, and remove their public copies. The app serves documents through an authenticated, branch-scoped endpoint after migration.
+
+This local filesystem storage is for local/self-hosted development. It is not persistent storage for Vercel or other ephemeral/serverless deployments.
+
+## Run the backend locally
+
+1. Copy `.env.example` to `.env.local` and set `DATABASE_URL`, `DIRECT_URL`, a unique `AUTH_SECRET` (at least 32 characters), and a unique initial admin password (12–72 UTF-8 bytes). Generate a secret with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
+2. Install dependencies with `npm install`.
+3. Generate the Prisma client with `npm run db:generate`.
+4. Apply the Prisma schema to the local PostgreSQL database with `npm run db:push`.
+5. Seed the initial admin and development reference data with `npm run db:seed`. Seeding does not reset an existing admin password.
+6. Start the app with `npm run dev` and sign in using `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`.
+
+`npm run db:push` is intended for local development. Before deploying, create and review a Prisma migration with `npm run db:migrate` and deploy it through the environment's migration process.
+
 ## Getting Started
 
 First, run the development server:

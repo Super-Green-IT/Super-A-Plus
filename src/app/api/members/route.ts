@@ -2,18 +2,21 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { validateNIC } from '@/lib/validation/nic'
-import { authorizeApi } from '@/lib/auth/api'
+import { authorizeApi, branchScope } from '@/lib/auth/api'
 import { nextDisplayNumber } from '@/lib/db/numbering'
+import { writeAuditLog } from '@/lib/audit'
+import { parsePagination } from '@/lib/http/query'
+import { readJson } from '@/lib/http/json'
 
 const memberCreateSchema = z.object({
-  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-  nic: z.string().min(10, 'NIC must be valid'),
-  phone: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
+  fullName: z.string().trim().min(2, 'Full name must be at least 2 characters').max(100),
+  nic: z.string().trim().min(10, 'NIC must be valid').max(16),
+  phone: z.string().trim().max(32).optional().nullable(),
+  address: z.string().trim().max(500).optional().nullable(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
   dateOfBirth: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'Invalid date of birth').optional().nullable(),
   centreId: z.string().uuid().optional().nullable(),
-})
+}).strict()
 
 export async function GET(request: Request) {
   const auth = await authorizeApi('members:view')
@@ -23,17 +26,23 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')?.trim()
     const centreId = searchParams.get('centreId')
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
-    const limit = Math.min(100, Math.max(5, parseInt(searchParams.get('limit') || '20', 10)))
-    const skip = (page - 1) * limit
+    const pagination = parsePagination(searchParams, 20)
+    if (!pagination) return NextResponse.json({ error: 'Invalid pagination values' }, { status: 400 })
+    const { page, limit, skip } = pagination
 
     const where: any = {}
+    if (searchParams.get('activeOnly') === 'true') where.isActive = true
+
+    if (search && search.length > 100) return NextResponse.json({ error: 'Search is too long' }, { status: 400 })
+    if (centreId && centreId !== 'ALL' && !z.string().uuid().safeParse(centreId).success) {
+      return NextResponse.json({ error: 'Invalid centre ID' }, { status: 400 })
+    }
 
     if (centreId && centreId !== 'ALL') {
       where.centreId = centreId
     }
     if (auth.user.role !== 'ADMIN') {
-      where.centre = { branchId: auth.user.branchId }
+      where.centre = { branchId: auth.user.branchId! }
     }
 
     if (search) {
@@ -51,6 +60,7 @@ export async function GET(request: Request) {
         include: {
           centre: { select: { id: true, name: true } },
           loans: {
+            where: branchScope(auth.user),
             select: {
               id: true,
               loanNumber: true,
@@ -129,8 +139,9 @@ export async function POST(request: Request) {
   if (!auth.user) return auth.response
 
   try {
-    const body = await request.json()
-    const parsed = memberCreateSchema.safeParse(body)
+    const body = await readJson(request)
+    if (!body.success) return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+    const parsed = memberCreateSchema.safeParse(body.value)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -141,10 +152,16 @@ export async function POST(request: Request) {
 
     const { fullName, nic, phone, address, gender, dateOfBirth, centreId } = parsed.data
 
-    if (auth.user.role !== 'ADMIN') {
-      if (!centreId) return NextResponse.json({ error: 'A centre in your branch is required' }, { status: 400 })
-      const centre = await prisma.centre.findFirst({ where: { id: centreId, branchId: auth.user.branchId } })
-      if (!centre) return NextResponse.json({ error: 'Centre not found in your branch' }, { status: 404 })
+    if (!centreId && auth.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'A centre in your branch is required' }, { status: 400 })
+    }
+    if (centreId) {
+      const centre = await prisma.centre.findFirst({
+        where: auth.user.role === 'ADMIN'
+          ? { id: centreId, isActive: true }
+          : { id: centreId, branchId: auth.user.branchId!, isActive: true },
+      })
+      if (!centre) return NextResponse.json({ error: 'Active centre not found' }, { status: 404 })
     }
 
     // Validate NIC
@@ -167,7 +184,7 @@ export async function POST(request: Request) {
 
     const member = await prisma.$transaction(async (tx) => {
       const memberNumber = await nextDisplayNumber(tx, 'member')
-      return tx.member.create({
+      const created = await tx.member.create({
         data: {
           memberNumber,
           fullName,
@@ -183,10 +200,21 @@ export async function POST(request: Request) {
           centre: { select: { id: true, name: true } },
         },
       })
+      await writeAuditLog(tx, {
+        userId: auth.user.id,
+        action: 'MEMBER_CREATED',
+        tableName: 'members',
+        recordId: created.id,
+        newValues: { memberNumber: created.memberNumber, centreId: created.centreId, isActive: created.isActive },
+      })
+      return created
     })
 
     return NextResponse.json({ member }, { status: 201 })
   } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+      return NextResponse.json({ error: 'A member with that NIC is already registered' }, { status: 409 })
+    }
     console.error('Error creating member:', error)
     return NextResponse.json({ error: 'Failed to create member' }, { status: 500 })
   }

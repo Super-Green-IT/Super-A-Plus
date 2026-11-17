@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -49,7 +50,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md border-y border-slate-300 bg-white px-6 py-8 sm:px-9 sm:py-10">
         <div className="mb-8 border-b border-slate-200 pb-6">
           <div className="mb-5 flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-md bg-emerald-700 text-sm font-semibold text-white">S+</span>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white">
+              <Image src="/favicon.jpeg" alt="Super A Plus logo" width={44} height={44} className="h-full w-full object-contain" priority />
+            </span>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">Cooperative Finance</span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Staff sign in</h1>

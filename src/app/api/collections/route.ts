@@ -4,6 +4,10 @@ import { z } from 'zod'
 import Decimal from 'decimal.js'
 import { authorizeApi, branchScope } from '@/lib/auth/api'
 import { nextDisplayNumber } from '@/lib/db/numbering'
+import { isAccountingDayClosed, lockAccountingDay } from '@/lib/finance/accounting-day'
+import { writeAuditLog } from '@/lib/audit'
+import { parsePagination } from '@/lib/http/query'
+import { readJson } from '@/lib/http/json'
 
 const collectionSchema = z.object({
   loanId: z.string().uuid('Invalid loan ID'),
@@ -25,9 +29,9 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
-    const limit = Math.min(100, Math.max(5, parseInt(searchParams.get('limit') || '30', 10)))
-    const skip = (page - 1) * limit
+    const pagination = parsePagination(searchParams, 30)
+    if (!pagination) return NextResponse.json({ error: 'Invalid pagination values' }, { status: 400 })
+    const { page, limit, skip } = pagination
 
     const [receipts, total] = await Promise.all([
       prisma.receipt.findMany({
@@ -95,8 +99,9 @@ export async function POST(request: Request) {
   let submittedAmount: number | undefined
 
   try {
-    const body = await request.json()
-    const parsed = collectionSchema.safeParse(body)
+    const body = await readJson(request)
+    if (!body.success) return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 })
+    const parsed = collectionSchema.safeParse(body.value)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -123,7 +128,7 @@ export async function POST(request: Request) {
       const loan = await tx.loan.findFirst({
         where: auth.user.role === 'ADMIN'
           ? { id: loanId }
-          : { id: loanId, branchId: auth.user.branchId },
+          : { id: loanId, branchId: auth.user.branchId! },
         include: {
           installments: {
             where: { status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] } },
@@ -132,6 +137,14 @@ export async function POST(request: Request) {
         },
       })
       if (!loan) throw new CollectionError('Loan not found', 404)
+      const receiptDate = collectedAt ? new Date(collectedAt) : new Date()
+      if (receiptDate.getTime() > Date.now()) {
+        throw new CollectionError('Collection date cannot be in the future', 400)
+      }
+      await lockAccountingDay(tx, loan.branchId, receiptDate)
+      if (await isAccountingDayClosed(tx, loan.branchId, receiptDate)) {
+        throw new CollectionError('This branch is already closed for the selected collection date', 409)
+      }
       if (loan.status !== 'ACTIVE' && loan.status !== 'DISBURSED') {
         throw new CollectionError(`Cannot collect payment for a loan with status ${loan.status}`, 400)
       }
@@ -139,7 +152,6 @@ export async function POST(request: Request) {
         throw new CollectionError('All installments for this loan have already been fully paid.', 400)
       }
 
-      const receiptDate = collectedAt ? new Date(collectedAt) : new Date()
       let remainingToAllocate = new Decimal(amount)
       let totalPrincipalPaid = new Decimal(0)
       let totalInterestPaid = new Decimal(0)
@@ -265,6 +277,13 @@ export async function POST(request: Request) {
           },
         ],
       })
+      await writeAuditLog(tx, {
+        userId: auth.user.id,
+        action: 'RECEIPT_CREATED',
+        tableName: 'receipts',
+        recordId: receipt.id,
+        newValues: { loanId: loan.id, receiptNumber: receipt.receiptNumber, amount: amount.toFixed(2), collectedAt: receiptDate.toISOString() },
+      })
 
       const remainingUnpaidCount = await tx.installment.count({
         where: {
@@ -277,6 +296,14 @@ export async function POST(request: Request) {
         await tx.loan.update({
           where: { id: loan.id },
           data: { status: 'CLOSED' },
+        })
+        await writeAuditLog(tx, {
+          userId: auth.user.id,
+          action: 'LOAN_CLOSED',
+          tableName: 'loans',
+          recordId: loan.id,
+          oldValues: { status: loan.status },
+          newValues: { status: 'CLOSED', closingReceiptId: receipt.id },
         })
       }
 

@@ -58,6 +58,7 @@ function InputField({
   error,
   suffix,
   required,
+  step,
 }: {
   label: string
   id: string
@@ -69,34 +70,37 @@ function InputField({
   error?: string
   suffix?: string
   required?: boolean
+  step?: string
 }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-xs font-medium text-slate-300">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      <label htmlFor={id} className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+        {label}{required && <span className="ml-0.5 text-rose-700 dark:text-rose-400">*</span>}
       </label>
       <div className="relative">
         <input
           id={id}
           type={type}
+          step={step ?? (type === 'number' ? 'any' : undefined)}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          required={required}
           className={cn(
-            'w-full rounded-lg border bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors',
-            'focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60',
-            error ? 'border-red-500/60' : 'border-slate-700',
+            'h-10 w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 outline-none transition-colors dark:bg-[#1b2820] dark:text-slate-100 dark:placeholder-slate-500',
+            'focus-visible:ring-2 focus-visible:ring-emerald-700/40 focus-visible:border-emerald-700 dark:focus-visible:border-emerald-400',
+            error ? 'border-rose-600 dark:border-rose-400' : 'border-slate-300 dark:border-white/15',
             suffix ? 'pr-10' : ''
           )}
         />
         {suffix && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-mono">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 dark:text-slate-400">
             {suffix}
           </span>
         )}
       </div>
-      {hint && !error && <p className="text-[10px] text-slate-500">{hint}</p>}
-      {error && <p className="text-[10px] text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+      {hint && !error && <p className="text-[11px] text-slate-600 dark:text-slate-400">{hint}</p>}
+      {error && <p className="flex items-center gap-1 text-[11px] text-rose-700 dark:text-rose-400"><AlertCircle className="h-3 w-3" />{error}</p>}
     </div>
   )
 }
@@ -118,14 +122,15 @@ function SelectField<T extends string>({
 }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-xs font-medium text-slate-300">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      <label htmlFor={id} className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+        {label}{required && <span className="ml-0.5 text-rose-700 dark:text-rose-400">*</span>}
       </label>
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60"
+        required={required}
+        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus-visible:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-700/40 dark:border-white/15 dark:bg-[#1b2820] dark:text-slate-100 dark:focus-visible:border-emerald-400"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -247,32 +252,33 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 max-h-[90vh] overflow-y-auto">
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[#17231b]/45 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col border-l border-slate-200 bg-[#fffefa] text-slate-900 shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right dark:border-white/10 dark:bg-[#202d25] dark:text-slate-100">
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-4">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-[#fffefa] px-5 py-4 dark:border-white/10 dark:bg-[#202d25] sm:px-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/20">
-                <Package className="h-5 w-5 text-emerald-400" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#e4ece2] dark:bg-emerald-300/10">
+                <Package className="h-5 w-5 text-[#274b38] dark:text-emerald-200" />
               </div>
               <div>
-                <Dialog.Title className="text-sm font-semibold text-slate-100">
+                <Dialog.Title className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {isEdit ? 'Edit Loan Product' : 'New Loan Product'}
                 </Dialog.Title>
-                <p className="text-[11px] text-slate-400">
+                <Dialog.Description className="text-xs text-slate-600 dark:text-slate-400">
                   {isEdit ? `Editing "${product?.name}"` : 'Configure a new lending product'}
-                </p>
+                </Dialog.Description>
               </div>
             </div>
             <Dialog.Close asChild>
-              <button className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors">
+              <button aria-label="Close product configuration" className="rounded-md p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
                 <X className="h-4 w-4" />
               </button>
             </Dialog.Close>
           </div>
 
           {/* Body */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
             {/* Product name */}
             <InputField
               label="Product Name"
@@ -340,7 +346,7 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
 
             {/* Amount limits */}
             <div>
-              <p className="text-xs font-medium text-slate-300 mb-2">Loan Amount Range</p>
+              <p className="mb-2 text-xs font-semibold text-slate-800 dark:text-slate-200">Loan Amount Range</p>
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="Minimum Amount"
@@ -369,12 +375,13 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
 
             {/* Term limits */}
             <div>
-              <p className="text-xs font-medium text-slate-300 mb-2">Repayment Term Range</p>
+              <p className="mb-2 text-xs font-semibold text-slate-800 dark:text-slate-200">Repayment Term Range</p>
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="Minimum Term"
                   id="prod-minW"
                   type="number"
+                step="1"
                   value={form.minTermWeeks}
                   onChange={(v) => set('minTermWeeks', v)}
                   placeholder="12"
@@ -386,6 +393,7 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
                   label="Maximum Term"
                   id="prod-maxW"
                   type="number"
+                step="1"
                   value={form.maxTermWeeks}
                   onChange={(v) => set('maxTermWeeks', v)}
                   placeholder="52"
@@ -397,56 +405,39 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
             </div>
 
             {/* Toggles */}
-            <div className="flex flex-wrap gap-6">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <div
-                  onClick={() => set('requiresGuarantor', !form.requiresGuarantor)}
-                  className={cn(
-                    'relative h-5 w-9 rounded-full transition-colors cursor-pointer',
-                    form.requiresGuarantor ? 'bg-emerald-500' : 'bg-slate-700'
-                  )}
-                >
-                  <span className={cn(
-                    'absolute top-0.5 h-4 w-4 rounded-full bg-[#fffefa] shadow transition-transform',
-                    form.requiresGuarantor ? 'translate-x-4' : 'translate-x-0.5'
-                  )} />
-                </div>
-                <span className="text-xs text-slate-300">Requires Guarantor</span>
+            <div className="flex flex-wrap gap-5 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <label className="flex items-center gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                <button type="button" role="switch" aria-label="Requires guarantor" aria-checked={form.requiresGuarantor} onClick={() => set('requiresGuarantor', !form.requiresGuarantor)} className={cn('inline-flex h-5 w-9 shrink-0 items-center rounded-full border-0 p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8eb39a] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#202d25]', form.requiresGuarantor ? 'bg-[#396349]' : 'bg-slate-300 dark:bg-slate-600')}>
+                  <span aria-hidden="true" className={cn('block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', form.requiresGuarantor ? 'translate-x-4' : 'translate-x-0')} />
+                </button>
+                Requires guarantor
               </label>
 
               {isEdit && (
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <div
-                    onClick={() => set('isActive', !form.isActive)}
-                    className={cn(
-                      'relative h-5 w-9 rounded-full transition-colors cursor-pointer',
-                      form.isActive ? 'bg-emerald-500' : 'bg-slate-700'
-                    )}
-                  >
-                    <span className={cn(
-                      'absolute top-0.5 h-4 w-4 rounded-full bg-[#fffefa] shadow transition-transform',
-                      form.isActive ? 'translate-x-4' : 'translate-x-0.5'
-                    )} />
-                  </div>
-                  <span className="text-xs text-slate-300">Active</span>
+                <label className="flex items-center gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                  <button type="button" role="switch" aria-label="Product active" aria-checked={form.isActive} onClick={() => set('isActive', !form.isActive)} className={cn('inline-flex h-5 w-9 shrink-0 items-center rounded-full border-0 p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8eb39a] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#202d25]', form.isActive ? 'bg-[#396349]' : 'bg-slate-300 dark:bg-slate-600')}>
+                    <span aria-hidden="true" className={cn('block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', form.isActive ? 'translate-x-4' : 'translate-x-0')} />
+                  </button>
+                  Active
                 </label>
               )}
             </div>
 
             {/* API error */}
             {apiError && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-xs text-red-400">
+              <div role="alert" className="flex items-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs text-rose-800 dark:border-rose-300/20 dark:bg-rose-300/10 dark:text-rose-200">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {apiError}
               </div>
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 border-t border-slate-800 pt-4">
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-[#fffefa] px-5 py-4 dark:border-white/10 dark:bg-[#202d25] sm:px-6">
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+                  className="min-h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5"
                 >
                   Cancel
                 </button>
@@ -455,10 +446,10 @@ export function ProductModal({ open, onOpenChange, product, onSaved }: ProductMo
                 type="submit"
                 disabled={saving || saved}
                 className={cn(
-                  'flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-all',
+                  'flex min-h-10 items-center gap-2 rounded-md px-5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#202d25]',
                   saved
                     ? 'bg-emerald-700 text-white'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60 disabled:cursor-not-allowed'
+                    : 'bg-[#274b38] text-white hover:bg-[#396349] disabled:cursor-not-allowed disabled:opacity-60'
                 )}
               >
                 {saved ? (

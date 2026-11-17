@@ -6,8 +6,15 @@ import { AUTH_COOKIE_NAME, encryptSession, decryptSession } from './jwt'
 
 export { AUTH_COOKIE_NAME, encryptSession, decryptSession }
 
-export async function createSession(user: SessionUser) {
-  const token = await encryptSession(user)
+export async function createSession(user: SessionUser, expectedAuthVersion: number) {
+  const profile = await prisma.userProfile.findUnique({
+    where: { id: user.id },
+    select: { authVersion: true, isActive: true },
+  })
+  if (!profile?.isActive || profile.authVersion !== expectedAuthVersion) {
+    throw new Error('SESSION_CREATION_REJECTED')
+  }
+  const token = await encryptSession(user, expectedAuthVersion)
   const cookieStore = await cookies()
 
   cookieStore.set(AUTH_COOKIE_NAME, token, {
@@ -30,10 +37,20 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
   const user = await prisma.userProfile.findUnique({
     where: { id: session.id },
-    select: { id: true, email: true, fullName: true, role: true, branchId: true, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      branchId: true,
+      isActive: true,
+      authVersion: true,
+      branch: { select: { isActive: true } },
+    },
   })
 
-  if (!user?.isActive) return null
+  if (!user?.isActive || user.authVersion !== session.authVersion) return null
+  if (user.role !== 'ADMIN' && (!user.branchId || !user.branch?.isActive)) return null
 
   return {
     id: user.id,

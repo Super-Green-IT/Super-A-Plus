@@ -8,6 +8,7 @@ export async function GET() {
 
   try {
     const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
     const [products, centres, membersCount, loans, receipts] = await Promise.all([
       prisma.loanProduct.findMany({
@@ -27,9 +28,10 @@ export async function GET() {
         where: { ...branchScope(auth.user), isActive: true },
         include: {
           members: {
+            where: { isActive: true },
             include: {
               loans: {
-                where: { status: { in: ['ACTIVE', 'DISBURSED'] } },
+                where: { ...branchScope(auth.user), status: { in: ['ACTIVE', 'DISBURSED'] } },
                 include: {
                   installments: {
                     select: { totalDue: true, totalPaid: true, status: true, dueDate: true },
@@ -40,9 +42,11 @@ export async function GET() {
           },
         },
       }),
-      prisma.member.count({ where: auth.user.role === 'ADMIN'
-        ? { isActive: true }
-        : { centre: { branchId: auth.user.branchId }, isActive: true } }),
+      prisma.member.count({ where: {
+        isActive: true,
+        loans: { some: { ...branchScope(auth.user), status: { in: ['ACTIVE', 'DISBURSED'] } } },
+        ...(auth.user.role === 'ADMIN' ? {} : { centre: { branchId: auth.user.branchId! } }),
+      } }),
       prisma.loan.findMany({
         where: branchScope(auth.user),
         include: {
@@ -130,17 +134,19 @@ export async function GET() {
     loans.forEach((l) => {
       if (l.status === 'ACTIVE' || l.status === 'DISBURSED') {
         let isLoanInArrears = false
+        let loanOutstanding = 0
         l.installments.forEach((inst) => {
           if (inst.status !== 'PAID' && inst.status !== 'WAIVED') {
             const due = Number(inst.totalDue) - Number(inst.totalPaid)
             totalActivePortfolio += due
+            loanOutstanding += due
             if (new Date(inst.dueDate) < today) {
               isLoanInArrears = true
             }
           }
         })
         if (isLoanInArrears) {
-          totalArrearsPortfolio += Number(l.principalAmount)
+          totalArrearsPortfolio += loanOutstanding
         }
       }
     })

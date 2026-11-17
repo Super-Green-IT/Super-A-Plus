@@ -5,7 +5,6 @@ export type Permission =
   | 'centres:view'
   | 'products:view'
   | 'members:view'
-  | 'leads:manage'
   | 'accounting:view'
   | 'collections:view'
   | 'loans:approve'
@@ -19,6 +18,11 @@ export type Permission =
   | 'reports:view'
   | 'settings:manage'
   | 'branches:manage'
+  | 'users:view'
+  | 'users:manage'
+  | 'team:view'
+  | 'team:manage'
+  | 'audit:view'
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ADMIN: [
@@ -38,8 +42,12 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'products:view',
     'members:view',
     'collections:view',
-    'leads:manage',
     'accounting:view',
+    'users:view',
+    'users:manage',
+    'team:view',
+    'team:manage',
+    'audit:view',
   ],
   BRANCH_MANAGER: [
     'loans:approve',
@@ -55,9 +63,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'centres:view',
     'products:view',
     'members:view',
-    'leads:manage',
     'collections:view',
     'accounting:view',
+    'team:view',
+    'team:manage',
   ],
   ACCOUNTANT: [
     'loans:view',
@@ -79,7 +88,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'centres:view',
     'products:view',
     'members:view',
-    'leads:manage',
     'collections:view',
   ],
 }
